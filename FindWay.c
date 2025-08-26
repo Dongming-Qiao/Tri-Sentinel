@@ -4,6 +4,7 @@
 
 #define WAY_Flag 0        // 赛道选择，1:黑底白线 0:白底黑线
 
+//Deepseek的代码
 // PID控制器结构体
 typedef struct {
     int32_t Kp;
@@ -229,3 +230,4 @@ void OLED_Task(void)
     OLED_P6x8Str(0, 2, txt);
     // 其他显示代码...
 }
+
