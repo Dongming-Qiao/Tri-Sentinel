@@ -15,6 +15,11 @@ sensor Car_sensor;
 
 int state = 0;
 
+int dash_counter=0;
+int sensor_counter=0;
+const int max_dash_count = 8; // Define a maximum dash count
+int is_dashing = 0;
+
 //??1
 typedef struct {
     float Kp;
@@ -80,8 +85,56 @@ void car_tim(void)
     Car_sensor.c = -(1 - Read_sensor(sensor4));
     Car_sensor.d = -(1 - Read_sensor(sensor1));
 #endif
-    
-    E_V = (Car_sensor.a * 2 + Car_sensor.b * 1.2) - (Car_sensor.c * 1.2 + Car_sensor.d * 2);
+
+if(Car_sensor.a==0)
+{
+    sensor_counter++;
+}
+if(Car_sensor.b==0)
+{
+    sensor_counter++;
+}
+if(Car_sensor.c==0)
+{
+    sensor_counter++;
+}
+if(Car_sensor.d==0)
+{
+    sensor_counter++;
+}
+
+switch (sensor_counter)
+{
+case 0:
+    dash_counter--;
+    if(dash_counter<0){
+        dash_counter=0;
+    }
+    if()
+    break;
+case 1:
+    dash_counter--;
+    if(dash_counter<0){
+        dash_counter=0;
+    }
+    break;
+case 3:
+    dash_counter++;
+    break;
+case 4:
+    dash_counter+=2;
+    break;
+default:
+    break;
+}
+
+if(dash_counter>max_dash_count){
+    is_dashing=1;
+}
+
+sensor_counter=0;
+
+E_V = (Car_sensor.a * 2 + Car_sensor.b * 1.2) - (Car_sensor.c * 1.2 + Car_sensor.d * 2);
     
     // PID??
     error = E_V;
@@ -109,7 +162,13 @@ void car_tim(void)
             car_V = 1200;
     }
 #else
-    if (Car_sensor.a == 0 && Car_sensor.b == 0 && Car_sensor.c == 0 && Car_sensor.d == 0)
+    if(is_dashing){
+        car_V = 1000;
+        output = 0;
+        is_dashing = 0;
+        dash_counter=0;
+    }
+    else if (Car_sensor.a == 0 && Car_sensor.b == 0 && Car_sensor.c == 0 && Car_sensor.d == 0)
     {
         car_V = -800;
     }
@@ -126,7 +185,7 @@ void car_tim(void)
     }
 #endif
     
-    if (Motor_Flag)
+    if (MotorFlag)
     {
 			if(abs(E_V) == 0)
 			{
