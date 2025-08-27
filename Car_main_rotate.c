@@ -26,13 +26,13 @@ enum
     DASH
 } STATES;
 
-const int LEFT_ROTATE_TIMES_MAX = 10;
+const int LEFT_ROTATE_TIMES_MAX = 6;
 int left_rotate_times = LEFT_ROTATE_TIMES_MAX;
 
-const int RIGHT_ROTATE_TIMES_MAX = 20;
+const int RIGHT_ROTATE_TIMES_MAX = 12;
 int right_rotate_times = RIGHT_ROTATE_TIMES_MAX;
 
-const int BACK_TO_FORWARD_TIMES_MAX = 10;
+const int BACK_TO_FORWARD_TIMES_MAX = 6;
 int back_to_forward_times = BACK_TO_FORWARD_TIMES_MAX;
 
 const int DASH_TIMES_MAX = 5;
@@ -163,7 +163,7 @@ void car_tim(void)
         {
             left_rotate_times--;
             car_V = 0;
-            output = -300; // left rotate
+            output = -800; // left rotate
             next_state = SEARCH_EXIT_LEFT;
         }
         else if (Car_sensor.a == 0 && Car_sensor.b == 0 && Car_sensor.c == 0 && Car_sensor.d == 0)
@@ -180,7 +180,7 @@ void car_tim(void)
         {
             right_rotate_times--;
             car_V = 0;
-            output = 300; // right rotate
+            output = 800; // right rotate
             next_state = SEARCH_EXIT_RIGHT;
         }
         else if (Car_sensor.a == 0 && Car_sensor.b == 0 && Car_sensor.c == 0 && Car_sensor.d == 0)
@@ -197,7 +197,7 @@ void car_tim(void)
         {
             back_to_forward_times--;
             car_V = 0;
-            output = -300; // right rotate
+            output = -800; // right rotate
             next_state = BACK_TO_FORWARD;
         }
         else
