@@ -14,6 +14,7 @@ int32_t car_V;
 sensor Car_sensor;
 
 int state = 0;
+int state_storage=0;
 int next_state = 0;
 enum
 {
@@ -162,7 +163,7 @@ void car_tim(void)
         {
             left_rotate_times--;
             car_V = 0;
-            output = -100; // left rotate
+            output = -300; // left rotate
             next_state = SEARCH_EXIT_LEFT;
         }
         else if (Car_sensor.a == 0 && Car_sensor.b == 0 && Car_sensor.c == 0 && Car_sensor.d == 0)
@@ -179,7 +180,7 @@ void car_tim(void)
         {
             right_rotate_times--;
             car_V = 0;
-            output = 100; // right rotate
+            output = 300; // right rotate
             next_state = SEARCH_EXIT_RIGHT;
         }
         else if (Car_sensor.a == 0 && Car_sensor.b == 0 && Car_sensor.c == 0 && Car_sensor.d == 0)
@@ -196,7 +197,7 @@ void car_tim(void)
         {
             back_to_forward_times--;
             car_V = 0;
-            output = -100; // right rotate
+            output = -300; // right rotate
             next_state = BACK_TO_FORWARD;
         }
         else
@@ -220,14 +221,14 @@ void car_tim(void)
     default:
         break;
     }
-
+    state_storage = state;
     state = next_state;
 
     
 #endif
 
     // remove MotorFlag
-    if (true)
+    if (1)
     {
         if (abs(E_V) == 0)
         {
@@ -263,12 +264,8 @@ void OLED_Task(void)
     // ????
     sprintf(txt, "%d %d %d %d E:%.1f", Car_sensor.a, Car_sensor.b, Car_sensor.c, Car_sensor.d, E_V);
     OLED_P6x8Str(0, 2, txt); // ???
-    sprintf(txt, "PWM: L: %5d", Moto_PWM.L);
+    sprintf(txt,"state: %d",state_storage);
     OLED_P6x8Str(0, 3, txt); // ???
-    sprintf(txt, "PWM: R: %5d", Moto_PWM.R);
-    OLED_P6x8Str(0, 4, txt); // ???
-    sprintf(txt, "PWM: B: %5d", Moto_PWM.B);
-    OLED_P6x8Str(0, 5, txt); // ???
 
     switch (state)
     {
@@ -284,7 +281,7 @@ void OLED_Task(void)
     case 0:
         sprintf(txt, "B");
     }
-    OLED_P6x8Str(0, 6, txt); // ???
+    OLED_P6x8Str(0, 4, txt); // ???
 
     delay_ms(100);
 }
