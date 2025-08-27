@@ -24,7 +24,7 @@ typedef struct {
     float previous_error;
 } PID_Controller;
 
-PID_Controller pid = {200.0, 0.0, 0.0, 0.0, 0.0}; // ??PID??
+PID_Controller pid = {500.0, 0.0, 0.0, 0.0, 0.0}; // ??PID??
 volatile uint8_t sensor_updated = 0; // ???????
 
 void Car_main(void)
@@ -114,28 +114,32 @@ void car_tim(void)
         car_V = -800;
     }
     else
-    {
-		if(abs(E_V) != 0)
 		{
-			car_V = 0;
-		}
+			if(abs(E_V) != 0)
+			{
+				car_V = 0;
+			}
+			else
+			{
+				car_V = 1000;
+			}
     }
 #endif
     
     if (Motor_Flag)
     {
-		if(abs(E_V) == 0)
-		{
-			Moto_PWM.L = car_V + output;
-        	Moto_PWM.R = -car_V + output;
-        	Moto_PWM.B = output * 1.15;	
-		}
-		else
-		{
-			Moto_PWM.L = car_V + output;
-        	Moto_PWM.R = -car_V + output;
-        	Moto_PWM.B = output;
-		}
+			if(abs(E_V) == 0)
+			{
+					Moto_PWM.L = car_V + output;
+					Moto_PWM.R = -car_V + output;
+					Moto_PWM.B = output * 1.15;	
+			}
+			else
+			{
+					Moto_PWM.L = car_V + output;
+					Moto_PWM.R = -car_V + output;
+					Moto_PWM.B = output;
+			}
     }
     else // ??????
     {
