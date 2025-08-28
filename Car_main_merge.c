@@ -2,7 +2,7 @@
 #include "include.h"
 #include "stdlib.h"
 
-// 全局变量定义
+// ??????
 CarSpeed Target_V = {0};
 CarSpeed ENC_V = {0};
 CarSpeed Moto_PWM = {0};
@@ -26,7 +26,7 @@ int red_state = 0;
 int red_state_storage = 0;
 int red_next_state = 0;
 
-enum
+typedef enum
 {
     RUN = 0,    
     MEET_FACE,
@@ -51,13 +51,13 @@ int dash_times = DASH_TIMES_MAX;
 
 //ultrasonic module variables
 enum{
-    RUN,
+    FORWARD,
     AVOIDING,
     PATTERN_GOT_1,
     AVOIDING_AGAIN,
     PATTERN_GOT_2,
     BACK_TO_ORIGINAL
-}Car_State;
+}STATES_ANOTHER;
 
 int detetction_locked_time=0;
 const int DETECTION_LOCKED_TIME_MAX=7;
@@ -72,13 +72,13 @@ int get_pattern=0;
 int ultra_state_storage=0;
 int ultra_next_state=0;
 
-int ultra_state = RUN;
+int ultra_state = FORWARD;
 //ultrasonic module variables end
 
 
 volatile uint8_t sensor_updated = 0;
 
-// 主要的Car_main函数
+// ???Car_main??
 void Car_main(void)
 {
     LED_Init();
@@ -92,7 +92,7 @@ void Car_main(void)
     Encoder_Init_TIM4();
     MotorInit();
     Ultrasonic_Init();
-    sensor_init(); // 红外传感器初始化
+    sensor_init(); // ????????
 
     Target_V.L = 0;
     Target_V.R = 0;
@@ -107,7 +107,10 @@ void Car_main(void)
     }
 }
 
-// 定时器中断处理
+void Skip(void);
+void infrared_motion(void);
+void ultra_motion(void);
+// ???????
 void car_tim(void)
 {
     Skip();
@@ -129,18 +132,20 @@ void car_tim(void)
 }
 
 void Skip(void)
-{
-    if(ultra_state == RUN)
+{    
+	  //ultra state
+    if(ultra_state == FORWARD)
     {
         Car_State = INFRARED_TRACKING;
     }
-    else if(ultra_state == AVOIDING || ultra_state == AVOIDING_AGAIN)
+		//infrared state
+    else if(Car_sensor.Dis<15||Car_sensor.Dis==1)
     {
         Car_State = ULTRASONIC_AVOID;
     }
 }
 
-// OLED显示任务
+// OLED????
 void OLED_Task(void)
 {
     char txt[64];
@@ -150,7 +155,8 @@ void OLED_Task(void)
 
     sprintf(txt, "IR:%d%d%d%d", Car_sensor.a, Car_sensor.b, Car_sensor.c, Car_sensor.d);
     OLED_P6x8Str(0, 2, txt);
-
+    
+	  Car_sensor.Dis=Get_Distance();
     sprintf(txt, "US:%3dcm E:%.1f", Car_sensor.Dis, E_V);
     OLED_P6x8Str(0, 3, txt);
 
@@ -163,16 +169,16 @@ void OLED_Task(void)
 
 void ultra_motion(void)
 {
-
+    get_pattern=(Car_sensor.a ==-1 && Car_sensor.b==-1 && Car_sensor.c==0 && Car_sensor.d==0);
     switch (ultra_state)
     {
-    case RUN:
+    case FORWARD:
         if (Car_sensor.Dis > 15 || Car_sensor.Dis == 1)
         {
             Target_V.L = 1000;
             Target_V.R = -1000;
             Target_V.B = 0;
-            ultra_next_state = RUN;
+            ultra_next_state = FORWARD;
         }
         else
         {
@@ -255,7 +261,7 @@ void ultra_motion(void)
             Target_V.L = 0;
             Target_V.R = 0;
             Target_V.B = 0;
-            ultra_next_state = RUN;
+            ultra_next_state = FORWARD;
             back_to_original_time = BACK_TO_ORIGINAL_TIME_MAX;
         }
         break;
@@ -463,4 +469,8 @@ void infrared_motion(void)
     Moto_PWM.B = ((Moto_PWM.B) < (-6000) ? (-6000) : ((Moto_PWM.B) > (6000) ? (6000) : (Moto_PWM.B)));
 
     MotorCtrl3w(Moto_PWM.R, Moto_PWM.B, Moto_PWM.L); // ??????
+}
+
+void Control(void){
+
 }
