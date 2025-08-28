@@ -1,3 +1,13 @@
+#include "Car_main.h"
+#include "include.h"
+
+#include "LQ_PID.h"
+
+extern u8 ReadBuff[1024];                // ´®¿Ú½ÓÊÕÊý¾Ý»º´æÊý×é
+extern int ECPULSE1, ECPULSE2, ECPULSE3; // ±àÂëÆ÷	¶ÔÓ¦±àÂëÆ÷£º×ó ÓÒ
+int speed = 2000;                        // µç»úËÙ¶ÈÖµ
+// Êý¾ÝÐÅÏ¢½á¹¹Ìå
+
 enum{
     RUN,
     AVOIDING,
@@ -5,37 +15,119 @@ enum{
     AVOIDING_AGAIN,
     PATTERN_GOT_2,
     BACK_TO_ORIGINAL
-}car_state;
-
-void set_speed(int r,int l,int b)
-{
-    //Moto_PWM.R = r;
-    //Moto_PWM.L = l;
-    //Moto_PWM.B = b;
-}
+}Car_State;
 
 int detetction_locked_time=0;
-const int DETECTION_LOCKED_TIME_MAX=5;
+const int DETECTION_LOCKED_TIME_MAX=7;
 
 int back_to_original_time=0;
-const int BACK_TO_ORIGINAL_TIME_MAX=5;
+const int BACK_TO_ORIGINAL_TIME_MAX=12;
 
-void car_avoid_barrier(void)
+const int TEST_TIMES = 8;
+int test_times = TEST_TIMES;
+
+int get_pattern=0;
+int state_storage=0;
+int next_state=0;
+
+Car Target_V;      // Ä¿±ê×ªËÙ
+Car ENC_V;         // Êµ¼Ê×ªËÙ
+Car ENC_Sum;       // ±àÂëÆ÷×ªÈ¦µÄºÍ
+Car Moto_PWM;      // ¿ØÖÆµç»ú¼ÆËã³öµÄPWM
+pid_param_t PID_L; // ³õÊ¼»¯PID²ÎÊý
+pid_param_t PID_R;
+pid_param_t PID_B;
+
+uint8_t Motor_Flag = 0; // µç»úÆôÍ£±êÖ¾Î»		0£ºÍ£Ö¹ÔËÐÐ 1£º¿ªÊ¼ÔË¶¯ °´¼üK1¿ØÖÆ
+int16_t ENC_Sum_ALL = 0;
+
+int32_t car_V;
+sensor Car_sensor;
+uint16_t Dis = 0.0;
+uint16_t Dis_L = 0.0;
+uint16_t Dis_R = 0.0;
+
+int State = RUN; 
+
+// Õû³µ¿ØÖÆÖ÷º¯Êý
+void Car_main(void)
 {
-    int get_pattern=0;
-    int state_storage=0;
-    int state=0;
-    int next_state=0;
-    switch (state)
+    LED_Init();                 // ³õÊ¼»¯LED
+    KEY_Init();                 // ³õÊ¼»¯°´¼ü
+    OLED_Init();                // OLED³õÊ¼»¯
+    OLED_CLS();                 // ÇåÆÁ
+    uart_init(USART_2, 115200); // ³õÊ¼»¯´®¿Ú
+    uart_init(USART_3, 115200); // ³õÊ¼»¯´®¿Ú
+    Encoder_Init_TIM2();        // ±àÂëÆ÷³õÊ¼»¯
+    Encoder_Init_TIM3();        // ±àÂëÆ÷³õÊ¼»¯
+    Encoder_Init_TIM4();        // ±àÂëÆ÷³õÊ¼»¯
+    MotorInit();                // µç»ú³õÊ¼»¯
+    Ultrasonic_Init();
+
+    PidInit(&PID_L); // ³õÊ¼»¯PID
+    PidInit(&PID_R);
+    PidInit(&PID_B);
+    Target_V.L = 0; // ËÙ¶È³õÊ¼»¯Îª0
+    Target_V.R = 0;
+    Target_V.B = 0;
+
+    while (1)
     {
+        OLED_Task(); // ÆÁÄ»ÏÔÊ¾
+        /*if (Read_key(KEY1) == 1)
+        {
+            if (Motor_Flag == 1)
+            {
+                State = RUN;
+                Motor_Flag = 0;
+            }
+
+            else if (Motor_Flag == 0)
+            {
+                Motor_Flag = 1;
+            }
+        }*/
+			Motor_Flag = 1;
+    }
+}
+
+
+/**************************************************************
+ * º¯ÊýÃû£ºcar_tim(void)
+ * ¹¦  ÄÜ£º¶¨Ê±Æ÷ÈÎÎñÖ±ÐÐ±àÂëÆ÷¶ÁÈ¡
+ * ×¢£º ¸Ãº¯ÊýÔÚ stm32f1xx_it.cÖÐ ÓÉµÎ´ð¶¨Ê±Æ÷ ÖÐ¶¨Ê±Ö´ÐÐ
+ **************************************************************/
+void car_tim(void)
+{
+	
+		 switch (State)
+    {
+		case RUN:
+				if(Dis > 15 || Dis == 1)
+				{
+						Target_V.L=1000;
+            Target_V.R=-1000;
+            Target_V.B=0;
+					  next_state=RUN;
+				}
+				else
+				{
+						next_state = AVOIDING;
+						get_pattern = 1;
+				}
+				break;
     case AVOIDING:
         // Avoid obstacle
         if(!get_pattern){
-            set_speed(-800, 1600, 0);
+            Target_V.L=0;
+            Target_V.R=-800;
+            Target_V.B=1600;
             next_state=AVOIDING;
         }
         else{
-            set_speed(800, -1600, 0);
+            Target_V.L=0;
+            Target_V.R=-800;
+            Target_V.B=1600;
             next_state=PATTERN_GOT_1;
         }
         break;
@@ -43,45 +135,125 @@ void car_avoid_barrier(void)
         // First pattern detected
         if(detetction_locked_time>0){
             detetction_locked_time--;
-            set_speed(800, -1600, 0);
+            Target_V.L=0;
+            Target_V.R=-800;
+            Target_V.B=1600;
             next_state=PATTERN_GOT_1;
         }
         else{
-            set_speed(0,0,0);
+            Target_V.L=0;
+            Target_V.R=0;
+            Target_V.B=0;
             next_state=AVOIDING_AGAIN;
+					  detetction_locked_time=DETECTION_LOCKED_TIME_MAX;
         }
         break;
     case AVOIDING_AGAIN:
         // Detection locked
         if(!get_pattern){
-            set_speed(-800, 1600, 0);
+            Target_V.L=0;
+            Target_V.R=-800;
+            Target_V.B=1600;
             next_state=AVOIDING_AGAIN;
         }
         else{
-            set_speed(800, -1600, 0);
+            Target_V.L=0;
+            Target_V.R=-800;
+            Target_V.B=1600;
             next_state=PATTERN_GOT_2;
         }
         break;
     case PATTERN_GOT_2:
         // Second pattern detected
-        set_speed(0,0,0);
+        Target_V.L=0;
+        Target_V.R=0;
+        Target_V.B=0;
         next_state=BACK_TO_ORIGINAL;
         break;
     case BACK_TO_ORIGINAL:
         // Return to original state
         if(back_to_original_time>0){
             back_to_original_time--;
-            set_speed(-800,-800,-800);
+            Target_V.L=-800;
+            Target_V.R=-800;
+            Target_V.B=-800;
             next_state=BACK_TO_ORIGINAL;
         }
         else{
-            set_speed(0,0,0);
+            Target_V.L=0;
+            Target_V.R=0;
+            Target_V.B=0;
             next_state=RUN;
+					  back_to_original_time=BACK_TO_ORIGINAL_TIME_MAX;
         }
         break;
     default:
         break;
     }
-    state_storage=state;
-    state=next_state;
+    state_storage=State;
+    State=next_state;
+		
+    // ±àÂëÆ÷²É¼¯
+    /* ENC_V.L=Read_Encoder(2);			//×óÂÖ
+    ENC_V.R=Read_Encoder(4);			//ÓÒÂÖ
+    ENC_V.B=Read_Encoder(3);			//ºóÂÖ */
+    if (1)
+    {
+        // Moto_PWM.L += PidLocCtrl(&PID_L, Target_V.L - ENC_V.L);
+        // Moto_PWM.R += PidLocCtrl(&PID_R, ENC_V.R - Target_V.R);
+        // Moto_PWM.B += PidLocCtrl(&PID_B, Target_V.B - ENC_V.B);
+
+        Moto_PWM.L = Target_V.L;
+        Moto_PWM.R = Target_V.R;
+        Moto_PWM.B = Target_V.B;
+    }
+    else
+    {
+        // ¹Ø±Õµç»úÊä³ö
+        // Moto_PWM.L += PidLocCtrl(&PID_L, Target_V.L - ENC_V.L);
+        // Moto_PWM.R += PidLocCtrl(&PID_R, ENC_V.R - Target_V.R);
+        // Moto_PWM.B += PidLocCtrl(&PID_B, Target_V.B - ENC_V.B);
+        Moto_PWM.L = 0;
+        Moto_PWM.R = 0;
+        Moto_PWM.B = 0;
+    }
+
+    // Êä³öÏÞ·ù
+    Moto_PWM.L = ((Moto_PWM.L) < (-6000) ? (-6000) : ((Moto_PWM.L) > (6000) ? (6000) : (Moto_PWM.L)));
+    Moto_PWM.R = ((Moto_PWM.R) < (-6000) ? (-6000) : ((Moto_PWM.R) > (6000) ? (6000) : (Moto_PWM.R)));
+    Moto_PWM.B = ((Moto_PWM.B) < (-6000) ? (-6000) : ((Moto_PWM.B) > (6000) ? (6000) : (Moto_PWM.B)));
+
+    // ×îÖÕµç»úÊä³ö
+    MotorCtrl3w(Moto_PWM.R, Moto_PWM.B, Moto_PWM.L);
 }
+
+// OLED ÏÔÊ¾ÄÚÈÝÈÎÎñº¯Êý
+void OLED_Task(void)
+{
+    char txt[64];
+    // ÏÔÊ¾±àÂëÆ÷ÊýÖµ
+    // sprintf(txt, "ENC: ALL:%d ", ENC_Sum_ALL);
+    // OLED_P6x8Str(0, 2, txt); // ×Ö·û´®
+
+    sprintf(txt, "PWM: L:%d R:%d B:%d ", Moto_PWM.L, Moto_PWM.R, Moto_PWM.B);
+    // sprintf(txt, "ENC: L:%d R:%d B:%d ", ENC_V.L, ENC_V.R, ENC_V.B);
+    OLED_P6x8Str(0, 2, txt); // ×Ö·û´®
+		
+		sprintf(txt, "State: %d", state_storage);
+    OLED_P6x8Str(0, 3, txt); // ÏÔÊ¾×Ö·û´®
+		
+    //sprintf(txt, "Tar: L:%d R:%d B:%d", Target_V.L, Target_V.R, Target_V.B);
+    //OLED_P6x8Str(0, 4, txt); // ×Ö·û´®
+    //printf("samples:%d,%d,%d", ENC_V.L, ENC_V.R, ENC_V.B);
+
+    // sprintf(txt, "Flag=%d ", Car_State);
+    //sprintf(txt, "ENC: L:%d R:%d B:%d ", ENC_V.L, ENC_V.R, ENC_V.B);
+    //OLED_P6x8Str(0, 6, txt); // ÏÔÊ¾×Ö·û´®
+    Dis = Get_Distance();
+    sprintf(txt, "Dis=%3d cm", Dis);
+    OLED_P6x8Str(0, 4, txt); // ÏÔÊ¾×Ö·û´®
+}
+uint8_t Dis_falg = 0;
+uint8_t read_flag = 0;
+
+
