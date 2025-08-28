@@ -62,6 +62,7 @@ volatile uint8_t sensor_updated = 0;
 
 #define INTEGRAL_LIMIT 1000
 #define OBSTACLE_DISTANCE  10
+#define DIS_DELTA 7.5
 
 // ???Car_main??
 void Car_main(void)
@@ -115,7 +116,7 @@ void car_tim(void)
 
 void Switch(void)
 {    
-    if(ultra_state >= OBSTACLE_DISTANCE) 
+    if(ultra_state >= OBSTACLE_DISTANCE + DIS_DELTA) 
     {
         Car_State = INFRARED_TRACKING;
     }
