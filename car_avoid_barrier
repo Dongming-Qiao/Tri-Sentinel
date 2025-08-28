@@ -17,14 +17,12 @@ enum{
     BACK_TO_ORIGINAL
 }Car_State;
 
-int detetction_locked_time=0;
 const int DETECTION_LOCKED_TIME_MAX=7;
+int detetction_locked_time=DETECTION_LOCKED_TIME_MAX;
 
-int back_to_original_time=0;
 const int BACK_TO_ORIGINAL_TIME_MAX=12;
+int back_to_original_time=BACK_TO_ORIGINAL_TIME_MAX;
 
-const int TEST_TIMES = 8;
-int test_times = TEST_TIMES;
 
 int get_pattern=0;
 int state_storage=0;
@@ -256,4 +254,8 @@ void OLED_Task(void)
 uint8_t Dis_falg = 0;
 uint8_t read_flag = 0;
 
+// Ð¡³µµç»ú¿ØÖÆ£¬¸ü¾ß´«¸ÐÆ÷²âµÃÊý¾ÝÐÅÏ¢ÅÐ¶Ï¿ØÖÆµ÷ÕûÔËÐÐ×´Ì¬
+void Control(void)
+{
 
+}
