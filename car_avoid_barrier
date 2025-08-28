@@ -1,0 +1,87 @@
+enum{
+    RUN,
+    AVOIDING,
+    PATTERN_GOT_1,
+    AVOIDING_AGAIN,
+    PATTERN_GOT_2,
+    BACK_TO_ORIGINAL
+}car_state;
+
+void set_speed(int r,int l,int b)
+{
+    //Moto_PWM.R = r;
+    //Moto_PWM.L = l;
+    //Moto_PWM.B = b;
+}
+
+int detetction_locked_time=0;
+const int DETECTION_LOCKED_TIME_MAX=5;
+
+int back_to_original_time=0;
+const int BACK_TO_ORIGINAL_TIME_MAX=5;
+
+void car_avoid_barrier(void)
+{
+    int get_pattern=0;
+    int state_storage=0;
+    int state=0;
+    int next_state=0;
+    switch (state)
+    {
+    case AVOIDING:
+        // Avoid obstacle
+        if(!get_pattern){
+            set_speed(-800, 1600, 0);
+            next_state=AVOIDING;
+        }
+        else{
+            set_speed(800, -1600, 0);
+            next_state=PATTERN_GOT_1;
+        }
+        break;
+    case PATTERN_GOT_1:
+        // First pattern detected
+        if(detetction_locked_time>0){
+            detetction_locked_time--;
+            set_speed(800, -1600, 0);
+            next_state=PATTERN_GOT_1;
+        }
+        else{
+            set_speed(0,0,0);
+            next_state=AVOIDING_AGAIN;
+        }
+        break;
+    case AVOIDING_AGAIN:
+        // Detection locked
+        if(!get_pattern){
+            set_speed(-800, 1600, 0);
+            next_state=AVOIDING_AGAIN;
+        }
+        else{
+            set_speed(800, -1600, 0);
+            next_state=PATTERN_GOT_2;
+        }
+        break;
+    case PATTERN_GOT_2:
+        // Second pattern detected
+        set_speed(0,0,0);
+        next_state=BACK_TO_ORIGINAL;
+        break;
+    case BACK_TO_ORIGINAL:
+        // Return to original state
+        if(back_to_original_time>0){
+            back_to_original_time--;
+            set_speed(-800,-800,-800);
+            next_state=BACK_TO_ORIGINAL;
+        }
+        else{
+            set_speed(0,0,0);
+            next_state=RUN;
+        }
+        break;
+    default:
+        break;
+    }
+    state_storage=state;
+    state=next_state;
+}
