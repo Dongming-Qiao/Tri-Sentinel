@@ -12,6 +12,7 @@ enum
 {
     RUN = 0,
     MEET_FACE,
+	  BACKWARD,
     SEARCH_EXIT_LEFT,
     SEARCH_EXIT_RIGHT,
     BACK_TO_FORWARD,
@@ -20,16 +21,22 @@ enum
     ROTATE
 } Car_State;
 
+const int BACKWARD_TIMES_MAX=2;
+int backward_times=BACKWARD_TIMES_MAX;
+
 const int LEFT_ROTATE_TIMES_MAX = 6;
 int left_rotate_times = LEFT_ROTATE_TIMES_MAX;
 
-const int RIGHT_ROTATE_TIMES_MAX = 11;
+const int RIGHT_ROTATE_TIMES_MAX = 12;
 int right_rotate_times = RIGHT_ROTATE_TIMES_MAX;
+
+const int ROTATE_BACKWARD_TIMES_MAX=2;
+int rotate_backward_times=ROTATE_BACKWARD_TIMES_MAX;
 
 const int BACK_TO_FORWARD_TIMES_MAX = 6;
 int back_to_forward_times = BACK_TO_FORWARD_TIMES_MAX;
 
-const int DASH_TIMES_MAX = 5;
+const int DASH_TIMES_MAX = 3;
 int dash_times = DASH_TIMES_MAX;
 
 const int ROTATE_TIME_MAX = 23;
@@ -40,6 +47,8 @@ int detetction_locked_time = DETECTION_LOCKED_TIME_MAX;
 
 const int BACK_TO_ORIGINAL_TIME_MAX = 13;
 int back_to_original_time = BACK_TO_ORIGINAL_TIME_MAX;
+
+
 
 int get_pattern = 0;
 
@@ -122,8 +131,16 @@ void car_tim(void)
     switch (state)
     {
     case RUN:
-        E_V = (Car_sensor.a * 2 + Car_sensor.b * 1.2) - (Car_sensor.c * 1.2 + Car_sensor.d * 2);
-
+        E_V = (Car_sensor.a * 1.9 + Car_sensor.b * 1.2) - (Car_sensor.c * 1.2 + Car_sensor.d * 1.9);
+		    //agressive
+        if(Car_sensor.a == 0 && Car_sensor.b == 0 && Car_sensor.c == 0 && Car_sensor.d == -1)
+				{
+				    E_V = 0;
+				}
+				else if(Car_sensor.a == -1 && Car_sensor.b == 0 && Car_sensor.c == 0 && Car_sensor.d == 0)
+				{
+				    E_V = 0;
+				}
         error = E_V;
         pid.integral += error;
 
@@ -159,7 +176,19 @@ void car_tim(void)
         back_to_forward_times = BACK_TO_FORWARD_TIMES_MAX;
         dash_times = DASH_TIMES_MAX;
         break;
-
+    case BACKWARD:
+			  if (backward_times > 0)
+        {
+            backward_times--;
+            car_V = -800;
+            output = 0; //backward
+            next_state = SEARCH_EXIT_LEFT;
+        }
+        else
+        {
+					  backward_times=BACKWARD_TIMES_MAX;
+            next_state = SEARCH_EXIT_LEFT;
+        }
     case SEARCH_EXIT_LEFT:
         if (left_rotate_times > 0)
         {
@@ -167,11 +196,18 @@ void car_tim(void)
             car_V = 0;
             output = -800; // left rotate
             next_state = SEARCH_EXIT_LEFT;
+					  rotate_backward_times=ROTATE_BACKWARD_TIMES_MAX;
         }
         else if (Car_sensor.a == 0 && Car_sensor.b == 0 && Car_sensor.c == 0 && Car_sensor.d == 0)
         {
             next_state = SEARCH_EXIT_RIGHT;
         }
+				else if(rotate_backward_times>0){
+					  rotate_backward_times--;
+					  car_V=-800;
+					  output=0;
+						next_state = SEARCH_EXIT_LEFT;
+				}
         else
         {
             next_state = RUN;
@@ -185,11 +221,18 @@ void car_tim(void)
             car_V = 0;
             output = 800; // right rotate
             next_state = SEARCH_EXIT_RIGHT;
+					  rotate_backward_times=ROTATE_BACKWARD_TIMES_MAX;
         }
         else if (Car_sensor.a == 0 && Car_sensor.b == 0 && Car_sensor.c == 0 && Car_sensor.d == 0)
         {
             next_state = BACK_TO_FORWARD;
         }
+				else if(rotate_backward_times>0){
+					  rotate_backward_times--;
+					  car_V=-800;
+					  output=0;
+						next_state = SEARCH_EXIT_RIGHT;
+				}
         else
         {
             next_state = RUN;
@@ -207,6 +250,7 @@ void car_tim(void)
         else
         {
             next_state = DASH;
+						back_to_forward_times = BACKWARD_TIMES_MAX;
         }
         break;
 
