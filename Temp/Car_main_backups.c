@@ -116,7 +116,7 @@ void car_tim(void)
 
 void Switch(void)
 {    
-    if(ultra_state >= OBSTACLE_DISTANCE + DIS_DELTA) 
+    if(Car_sensor.Dis >= OBSTACLE_DISTANCE + DIS_DELTA) 
     {
         Car_State = INFRARED_TRACKING;
     }
