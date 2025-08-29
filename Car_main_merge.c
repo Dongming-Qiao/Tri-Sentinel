@@ -114,6 +114,22 @@ void ultra_motion(void);
 // ???????
 void car_tim(void)
 {
+	
+	
+	  
+#if WAY_Flag
+    Car_sensor.a = 1 - Read_sensor(sensor2);
+    Car_sensor.b = 1 - Read_sensor(sensor3);
+    Car_sensor.c = 1 - Read_sensor(sensor4);
+    Car_sensor.d = 1 - Read_sensor(sensor1);
+#else
+    Car_sensor.a = -(1 - Read_sensor(sensor2));
+    Car_sensor.b = -(1 - Read_sensor(sensor3));
+    Car_sensor.c = -(1 - Read_sensor(sensor4));
+    Car_sensor.d = -(1 - Read_sensor(sensor1));
+#endif  
+	  //Car_sensor.Dis=Get_Distance();
+	
       //ultra state
     if(ultra_state == ULTRA_FINISH)
     {
@@ -159,7 +175,8 @@ void Skip(void)
 
 // OLED????
 void OLED_Task(void)
-{
+{   
+	  
     char txt[64];
 
     sprintf(txt, "State:%d", Car_State);
@@ -181,8 +198,9 @@ void OLED_Task(void)
 
 void ultra_motion(void)
 {
-    get_pattern=(Car_sensor.a ==-1 && Car_sensor.b==-1 && Car_sensor.c==0 && Car_sensor.d==0);
-    switch (ultra_state)
+    //get_pattern=(Car_sensor.a ==-1 && Car_sensor.b==-1 && Car_sensor.c==0 && Car_sensor.d==0);
+    get_pattern=1;
+	  switch (ultra_state)
     {
     case FORWARD:
         if (Car_sensor.Dis > 15 || Car_sensor.Dis == 1)
@@ -322,17 +340,6 @@ void infrared_motion(void)
     float error;
     float derivative;
 
-#if WAY_Flag
-    Car_sensor.a = 1 - Read_sensor(sensor2);
-    Car_sensor.b = 1 - Read_sensor(sensor3);
-    Car_sensor.c = 1 - Read_sensor(sensor4);
-    Car_sensor.d = 1 - Read_sensor(sensor1);
-#else
-    Car_sensor.a = -(1 - Read_sensor(sensor2));
-    Car_sensor.b = -(1 - Read_sensor(sensor3));
-    Car_sensor.c = -(1 - Read_sensor(sensor4));
-    Car_sensor.d = -(1 - Read_sensor(sensor1));
-#endif
 
     E_V = (Car_sensor.a * 2 + Car_sensor.b * 1.2) - (Car_sensor.c * 1.2 + Car_sensor.d * 2);
 
