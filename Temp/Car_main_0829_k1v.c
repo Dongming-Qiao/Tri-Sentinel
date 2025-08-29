@@ -5,6 +5,8 @@
 extern u8 ReadBuff[1024];
 extern int ECPULSE1, ECPULSE2, ECPULSE3;
 int speed = 2000;
+uint8_t Dis_falg = 0;
+uint8_t read_flag = 0;
 
 enum
 {
@@ -21,7 +23,7 @@ enum
 const int LEFT_ROTATE_TIMES_MAX = 6;
 int left_rotate_times = LEFT_ROTATE_TIMES_MAX;
 
-const int RIGHT_ROTATE_TIMES_MAX = 12;
+const int RIGHT_ROTATE_TIMES_MAX = 11;
 int right_rotate_times = RIGHT_ROTATE_TIMES_MAX;
 
 const int BACK_TO_FORWARD_TIMES_MAX = 6;
@@ -30,18 +32,16 @@ int back_to_forward_times = BACK_TO_FORWARD_TIMES_MAX;
 const int DASH_TIMES_MAX = 5;
 int dash_times = DASH_TIMES_MAX;
 
-const int ROTATE_TIME_MAX = 5;
+const int ROTATE_TIME_MAX = 23;
 int rotate_time = ROTATE_TIME_MAX;
 
 const int DETECTION_LOCKED_TIME_MAX = 7;
 int detetction_locked_time = DETECTION_LOCKED_TIME_MAX;
 
-const int BACK_TO_ORIGINAL_TIME_MAX = 12;
+const int BACK_TO_ORIGINAL_TIME_MAX = 13;
 int back_to_original_time = BACK_TO_ORIGINAL_TIME_MAX;
 
 int get_pattern = 0;
-int state_storage = 0;
-int next_state = 0;
 
 Car Moto_PWM;
 Car Target_V;
@@ -86,10 +86,13 @@ void Car_main(void)
     MotorInit();
     sensor_init(); // µç»ú³õÊ¼»¯
     Ultrasonic_Init();
+	
+		state = RUN;
 
     Target_V.L = 0;
     Target_V.R = 0;
     Target_V.B = 0;
+    
 
     while (1)
     {
@@ -105,22 +108,20 @@ void Car_main(void)
  **************************************************************/
 void car_tim(void)
 {
-    Dis = Get_Distance();
-    if (Dis <= 15 && Dis != 1 && state != AVOIDING && state != ROTATE)
+    if (Dis <= 9 && Dis != 1 && state != AVOIDING && state != ROTATE)
     {
         state = AVOIDING;
         rotate_time = ROTATE_TIME_MAX;
         back_to_original_time = BACK_TO_ORIGINAL_TIME_MAX;
     }
+		Car_sensor.a = -(1 - Read_sensor(sensor2));
+    Car_sensor.b = -(1 - Read_sensor(sensor3));
+    Car_sensor.c = -(1 - Read_sensor(sensor4));
+    Car_sensor.d = -(1 - Read_sensor(sensor1));
 
     switch (state)
     {
     case RUN:
-        Car_sensor.a = -(1 - Read_sensor(sensor2));
-        Car_sensor.b = -(1 - Read_sensor(sensor3));
-        Car_sensor.c = -(1 - Read_sensor(sensor4));
-        Car_sensor.d = -(1 - Read_sensor(sensor1));
-
         E_V = (Car_sensor.a * 2 + Car_sensor.b * 1.2) - (Car_sensor.c * 1.2 + Car_sensor.d * 2);
 
         error = E_V;
@@ -146,6 +147,7 @@ void car_tim(void)
 
         if (Car_sensor.a == 0 && Car_sensor.b == 0 && Car_sensor.c == 0 && Car_sensor.d == 0)
         {
+						car_V = 0;
             next_state = MEET_FACE;
         }
         break;
@@ -290,8 +292,7 @@ void OLED_Task(void)
     sprintf(txt, "Dis=%3d cm", Dis);
     OLED_P6x8Str(0, 4, txt); // ÏÔÊ¾×Ö·û´®
 
-    
+		
 }
-uint8_t Dis_falg = 0;
-uint8_t read_flag = 0;
+
 void Control(void) {}
