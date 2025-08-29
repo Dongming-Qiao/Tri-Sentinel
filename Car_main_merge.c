@@ -56,7 +56,8 @@ enum{
     PATTERN_GOT_1,
     AVOIDING_AGAIN,
     PATTERN_GOT_2,
-    BACK_TO_ORIGINAL
+    BACK_TO_ORIGINAL,
+    ULTRA_FINISH
 }STATES_ANOTHER;
 
 int detetction_locked_time=0;
@@ -113,12 +114,23 @@ void ultra_motion(void);
 // ???????
 void car_tim(void)
 {
-    Skip();
+      //ultra state
+    if(ultra_state == ULTRA_FINISH)
+    {
+        Car_State = INFRARED_TRACKING;
+    }
+		//infrared state
+    else if(Car_sensor.Dis<15||Car_sensor.Dis==1)
+    {
+        Car_State = ULTRASONIC_AVOID;
+    }
+
+
     if (Car_State == INFRARED_TRACKING)
     {
         infrared_motion();
     }
-    else if (Car_State == ULTRASONIC_AVOID)
+    else if (Car_State = ULTRASONIC_AVOID)
     {
         ultra_motion();
     }
@@ -134,7 +146,7 @@ void car_tim(void)
 void Skip(void)
 {    
 	  //ultra state
-    if(ultra_state == FORWARD)
+    if(ultra_state == ULTRA_FINISH)
     {
         Car_State = INFRARED_TRACKING;
     }
@@ -163,7 +175,7 @@ void OLED_Task(void)
     sprintf(txt, "PWM:L%d R%d B%d", Moto_PWM.L, Moto_PWM.R, Moto_PWM.B);
     OLED_P6x8Str(0, 4, txt);
 
-    sprintf(txt, "Flag:%d", Motor_Flag);
+    sprintf(txt, "States:%d, %d", red_state_storage,ultra_state_storage);
     OLED_P6x8Str(0, 6, txt);
 }
 
@@ -261,7 +273,7 @@ void ultra_motion(void)
             Target_V.L = 0;
             Target_V.R = 0;
             Target_V.B = 0;
-            ultra_next_state = FORWARD;
+            ultra_next_state = ULTRA_FINISH;
             back_to_original_time = BACK_TO_ORIGINAL_TIME_MAX;
         }
         break;
