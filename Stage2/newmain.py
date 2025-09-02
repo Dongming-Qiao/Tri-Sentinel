@@ -134,13 +134,9 @@ def detect_obstacle(img):
 
     return obstacle_detected, max_blob
 
-<<<<<<< HEAD
-def Tracking(increment):
-=======
 def Tracking():
     global speed_L, speed_R, speed_B, Car_V, E_V, output
 
->>>>>>> bdf9d233f48e582da2b7ff011849c1a1859352b7
     if E_V==0:
         if(sensor_data[0] == 0 & sensor_data[1] == 0 & sensor_data[2] == 0 & sensor_data[3] == 0):
             Car_V=-3000
