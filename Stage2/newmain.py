@@ -152,7 +152,9 @@ def Tracking():
         speed_L=output
         speed_R=output
         speed_B=output
-        
+    
+    speed_L += increment
+    speed_L += increment
     speed_L = max(-8000, min(8000, speed_L))    
     speed_R = max(-8000, min(8000, speed_R))  
     speed_B = max(-8000, min(8000, speed_B)) 
@@ -161,61 +163,7 @@ def Tracking():
     motor2.run(speed_R)
     motor3.run(speed_B)
 
-def Tracking_right():
-    left_increment=500
-    if E_V==0:
-        if(sensor_data[0] == 0 & sensor_data[1] == 0 & sensor_data[2] == 0 & sensor_data[3] == 0):
-            Car_V=-3000
-        else:
-            Car_V = 4000
-            speed_L = Car_V
-            speed_R = -Car_V
-            speed_B = 0
-    else:
-        output=pid_infra.get_pid(E_V,1)
-        Car_V=0
 
-        speed_L=output
-        speed_R=output
-        speed_B=output
-        
-    speed_L += left_increment
-    speed_L += left_increment
-    speed_L = max(-8000, min(8000, speed_L))    
-    speed_R = max(-8000, min(8000, speed_R))  
-    speed_B = max(-8000, min(8000, speed_B)) 
-    
-    motor1.run(speed_L)
-    motor2.run(speed_R)
-    motor3.run(speed_B)
-
-def Tracking_left():
-    right_increment=500
-    if E_V==0:
-        if(sensor_data[0] == 0 & sensor_data[1] == 0 & sensor_data[2] == 0 & sensor_data[3] == 0):
-            Car_V=-3000
-        else:
-            Car_V = 4000
-            speed_L = Car_V
-            speed_R = -Car_V
-            speed_B = 0
-    else:
-        output=pid_infra.get_pid(E_V,1)
-        Car_V=0
-
-        speed_L=output
-        speed_R=output
-        speed_B=output
-        
-    speed_L += right_increment
-    speed_L += right_increment
-    speed_L = max(-8000, min(8000, speed_L))    
-    speed_R = max(-8000, min(8000, speed_R))  
-    speed_B = max(-8000, min(8000, speed_B)) 
-    
-    motor1.run(speed_L)
-    motor2.run(speed_R)
-    motor3.run(speed_B)
 
 while(True):
 
@@ -275,7 +223,7 @@ while(True):
     E_V = sensor_data[0]*2 + sensor_data[1]*1.2 - sensor_data[2]*1.2 - sensor_data[3]*2
 
     if state == State.LINE_FOLLOWING:
-        Tracking()
+        Tracking(0)
     elif state == State.OBSTACLE_AVOIDANCE:
         # 避障思路：识别到障碍物后小车绕着障碍物走（镜头对准障碍物），此时对后轮编码器进行累计，达到一定值（实际测量编码器的值）后
         # 判断为绕障碍物走了180°，此时将车模以一定速度旋转一定角度（掉头），然后将标志位切换回循迹模式。
@@ -305,11 +253,11 @@ while(True):
         # 找球的函数
         pass
     elif state==State.TURN_LEFT:
-        Tracking_left()
+        Tracking(500)
     elif state==State.TURN_RIGHT:
-        Tracking_right()
+        Tracking(-500)
     elif state==State.TURN_TO_BRANCH:
-        Tracking_right()
+        Tracking(-500)
     else:
         pass
 
