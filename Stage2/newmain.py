@@ -265,6 +265,8 @@ while(True):
             state = State.TURN_RIGHT
         elif template_matching_index==2:
             state = State.TURN_TO_BRANCH
+        else:
+            pass
 
     obstacle_flag = 0
     Receive.Receive_Sensor_Data()   # 接收传感器数据

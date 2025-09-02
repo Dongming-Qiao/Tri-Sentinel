@@ -128,6 +128,11 @@ def detect_obstacle(img):
 
     return obstacle_detected, max_blob
 
+def push_ball():
+    global speed_L, speed_R, speed_B
+
+    
+
 def Tracking():
     global speed_L, speed_R, speed_B, Car_V, E_V, output
 
@@ -225,7 +230,7 @@ while(True):
         continue    #跳出本次循环
     elif state == State.KICK_BALL:
         # 找球的函数
-        pass
+        push_ball()
     else:
         pass
 
