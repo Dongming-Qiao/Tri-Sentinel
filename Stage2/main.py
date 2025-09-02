@@ -145,7 +145,7 @@ while(True):
         motor3.run(speed_B)
     
 
-    """ # 切换模式 obstacle_flag=1为避障模式 obstacle_flag=0为寻迹模式
+     # 切换模式 obstacle_flag=1为避障模式 obstacle_flag=0为寻迹模式
     if obstacle_flag == 1:                      # 执行避障程序
         # 避障思路：识别到障碍物后小车绕着障碍物走（镜头对准障碍物），此时对后轮编码器进行累计，达到一定值（实际测量编码器的值）后
         # 判断为绕障碍物走了180°，此时将车模以一定速度旋转一定角度（掉头），然后将标志位切换回循迹模式。
@@ -216,4 +216,3 @@ while(True):
             motor2.run(0)
             motor3.run(0)
     lcd.write(img)  # 显示屏显示图像 """
-

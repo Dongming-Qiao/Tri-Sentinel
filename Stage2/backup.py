@@ -6,16 +6,12 @@ from pid import PID
 from LQ_Module import motor, Enc_AB 
 
 import Receive
-import template_matching_1
 
 class State(Enum):
     LINE_FOLLOWING = 1
     OBSTACLE_AVOIDANCE = 2
     CHOOSE_PATH = 3
     KICK_BALL = 4
-    TURN_LEFT = 5
-    TURN_RIGHT = 6
-    TURN_TO_BRANCH = 7
 
 sensor_data = [0, 0, 0, 0]
 
@@ -59,10 +55,8 @@ Enc3 = Enc_AB(Timer(14, freq=5), Enc_A="P25", Enc_B="P26")
 
 sensor.reset()      # 初始化摄像头
 sensor.set_hmirror(True)# 镜像（如果视觉模块倒着安装，则开启这个镜像）
-sensor.set_vflip(True)   # 翻转（如果视觉模块倒着安装，则开启这个翻转）
 sensor.set_pixformat(sensor.RGB565) # 采集格式（彩色图像采集）
-sensor.set_framesize(sensor.QQVGA)    # 像素大小不是320X240
-#需要修改roi
+sensor.set_framesize(sensor.QVGA)    # 像素大小 320X240
 sensor.skip_frames(time = 2000)     # 等待初始化完成
 sensor.set_auto_gain(False) # must be turned off for color tracking
 sensor.set_auto_whitebal(False) # must be turned off for color tracking
@@ -134,13 +128,9 @@ def detect_obstacle(img):
 
     return obstacle_detected, max_blob
 
-<<<<<<< HEAD
-def Tracking(increment):
-=======
 def Tracking():
     global speed_L, speed_R, speed_B, Car_V, E_V, output
 
->>>>>>> bdf9d233f48e582da2b7ff011849c1a1859352b7
     if E_V==0:
         if(sensor_data[0] == 0 & sensor_data[1] == 0 & sensor_data[2] == 0 & sensor_data[3] == 0):
             Car_V=-3000
@@ -156,9 +146,7 @@ def Tracking():
         speed_L=output
         speed_R=output
         speed_B=output
-    
-    speed_L += increment
-    speed_L += increment
+        
     speed_L = max(-8000, min(8000, speed_L))    
     speed_R = max(-8000, min(8000, speed_R))  
     speed_B = max(-8000, min(8000, speed_B)) 
@@ -166,8 +154,6 @@ def Tracking():
     motor1.run(speed_L)
     motor2.run(speed_R)
     motor3.run(speed_B)
-
-
 
 while(True):
 
@@ -185,7 +171,6 @@ while(True):
     if frame_counter >= 1000:
         frame_counter = 0
 
-    state = State.LINE_FOLLOWING
     if detection_mode == 0:
         obstacle_detected = detect_obstacle(img)
 
@@ -202,21 +187,8 @@ while(True):
 
         print("Ball:", ball_detected)
     else:
-        # 修复：使用copy()方法创建副本，再转换为灰度图
-        gray_img = img.copy()     # 创建彩色图像的副本
-        gray_img.to_grayscale()   # 转换为灰度图，不影响原始彩色图像
-        template_matching_index = template_matching_1.find_pattern(gray_img, img)
-        #template_matching_index
-        #0: Left found
-        #1: Right found
-        #2: Branch found
-        #3: Nothing found
-        if template_matching_index==0:
-            state = State.TURN_LEFT
-        elif template_matching_index==1:
-            state = State.TURN_RIGHT
-        elif template_matching_index==2:
-            state = State.TURN_TO_BRANCH
+        if not obstacle_detected and not ball_detected:
+            state = State.LINE_FOLLOWING
 
     obstacle_flag = 0
     Receive.Receive_Sensor_Data()   # 接收传感器数据
@@ -225,7 +197,7 @@ while(True):
     E_V = sensor_data[0]*2 + sensor_data[1]*1.2 - sensor_data[2]*1.2 - sensor_data[3]*2
 
     if state == State.LINE_FOLLOWING:
-        Tracking(0)
+        Tracking()
     elif state == State.OBSTACLE_AVOIDANCE:
         # 避障思路：识别到障碍物后小车绕着障碍物走（镜头对准障碍物），此时对后轮编码器进行累计，达到一定值（实际测量编码器的值）后
         # 判断为绕障碍物走了180°，此时将车模以一定速度旋转一定角度（掉头），然后将标志位切换回循迹模式。
@@ -254,12 +226,6 @@ while(True):
     elif state == State.KICK_BALL:
         # 找球的函数
         pass
-    elif state==State.TURN_LEFT:
-        Tracking(500)
-    elif state==State.TURN_RIGHT:
-        Tracking(-500)
-    elif state==State.TURN_TO_BRANCH:
-        Tracking(-500)
     else:
         pass
 
