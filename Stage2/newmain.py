@@ -1,14 +1,12 @@
-from enum import Enum
-
-import sensor, image, time, display     
-from pyb import Pin,Timer              
-from pid import PID                    
-from LQ_Module import motor, Enc_AB 
+import sensor, image, time, display
+from pyb import Pin,Timer
+from pid import PID
+from LQ_Module import motor, Enc_AB
 
 import Receive
 import template_matching_1
 
-class State(Enum):
+class State:
     LINE_FOLLOWING = 1
     OBSTACLE_AVOIDANCE = 2
     CHOOSE_PATH = 3
@@ -23,9 +21,9 @@ start_flag = False
 
 state = State.LINE_FOLLOWING
 
-encoder_value = 0       
-min_speed = 2000       
-speed = 4000 
+encoder_value = 0
+min_speed = 2000
+speed = 4000
 
 E_V = 0 # 误差值
 Car_V = 0   # 车体速度
@@ -41,7 +39,7 @@ pid_x = PID(p = 150,i = 0, d = 0,imax = 50)    # 用于控制摄像头一直朝�
 lcd = display.SPIDisplay()      # 初始化显示屏（参数默认-空）
 lcd.clear()                     # 清屏
 pic = image.Image("/pic0.jpg")  # 读取图片
-lcd.write(pic) 
+lcd.write(pic)
 
 #按键初始化,按键扫描，母版上K0,K1,K2分别对应P30,P31,P1
 button_0 = Pin('P30', Pin.IN, Pin.PULL_UP)
@@ -128,6 +126,7 @@ def detect_obstacle(img):
                           merge=True)
 
     obstacle_detected = False
+    max_blob = None
     if blobs:
         max_blob = find_max(blobs)
         area_g = max_blob[2] * max_blob[3]
@@ -140,7 +139,7 @@ def detect_obstacle(img):
 
     return obstacle_detected, max_blob
 
-def Tracking():
+def Tracking(increment):
     global speed_L, speed_R, speed_B, Car_V, E_V, output
 
     if E_V==0:
@@ -158,13 +157,13 @@ def Tracking():
         speed_L=output
         speed_R=output
         speed_B=output
-    
+
     speed_L += increment
     speed_L += increment
-    speed_L = max(-8000, min(8000, speed_L))    
-    speed_R = max(-8000, min(8000, speed_R))  
-    speed_B = max(-8000, min(8000, speed_B)) 
-    
+    speed_L = max(-8000, min(8000, speed_L))
+    speed_R = max(-8000, min(8000, speed_R))
+    speed_B = max(-8000, min(8000, speed_B))
+
     motor1.run(speed_R)
     motor2.run(speed_B)
     motor3.run(speed_L)
