@@ -92,6 +92,9 @@ ball_position = (0, 0)
 
 BALL_THRESHOLD = (19, 61, 30, 82, 12, 59)
 OBSATCLE_THRESHOLD = (35, 52, -10, 25, -17, 36)
+ARROW_THRESHOLD = (30, 100, -70, -10, -10, 70)
+
+img_center = (80, 60)
 
 def find_max(blobs):
     max_size=0
@@ -129,8 +132,8 @@ def detect_obstacle(img):
 
     blobs = img.find_blobs([OBSATCLE_THRESHOLD],
                           roi=obstacle_roi,
-                          pixels_threshold=100,
-                          area_threshold=50,
+                          pixels_threshold=1000,
+                          area_threshold=300,
                           merge=True)
 
     obstacle_detected = False
@@ -138,7 +141,7 @@ def detect_obstacle(img):
     if blobs:
         max_blob = find_max(blobs)
         area_g = max_blob[2] * max_blob[3]
-        if area_g > 1500:  # 障碍物面积阈值
+        if area_g > 2500:  # 障碍物面积阈值
             obstacle_detected = True
             obstacle_area = area_g
             """ # 绘制检测结果（调试用）
@@ -150,11 +153,25 @@ def detect_obstacle(img):
 def Tracking(increment):
     global speed_L, speed_R, speed_B, Car_V, E_V, output
 
-    if E_V==0:
-        if(sensor_data[0] == 0 and sensor_data[1] == 0 and sensor_data[2] == 0 and sensor_data[3] == 0):
-            Car_V=-4000
+    if sensor_data[3]==0:
+        #turn right
+        Car_V=0
+        output=3000
+        speed_L=output
+        speed_R=output
+        speed_B=output
+    elif (sensor_data[0] == 1 and sensor_data[1] == 1 and sensor_data[2] == 1 and sensor_data[3]==1 ):
+        #turn left
+        Car_V=0
+        output=-3000
+        speed_L=output
+        speed_R=output
+        speed_B=output
+    elif E_V==0:
+        if(sensor_data[0] == 1 and sensor_data[1] == 1 and sensor_data[2] == 1):
+            Car_V=-3500
         else:
-            Car_V = 5000
+            Car_V =3500
         speed_L = Car_V
         speed_R = -Car_V
         speed_B = 0
@@ -180,7 +197,63 @@ def Tracking(increment):
     print("speed_[L,R,B]:",speed_L,speed_R,speed_B)
     print("Car_V,output",Car_V,output)
 
+def detect_arrow(img):
+    blobs = img.find_blobs([ARROW_THRESHOLD],
+                          roi=(0, 0, 160, 120),
+                          pixels_threshold=80,
+                          area_threshold=40,
+                          merge=True)
+    
+    arrow_detected = False
+    arrow_center = (80,60)
+    max_blob = None
 
+    if blobs:
+        max_blob = find_max(blobs)
+        area_g = max_blob[2] * max_blob[3]
+        if area_g > 200:  # 箭头面积阈值
+            arrow_detected = True
+            arrow_center = (max_blob.cx(), max_blob.cy())
+
+            img.draw_rectangle(max_blob[0:4], color=(0, 0, 255))
+            img.draw_cross(max_blob[5], max_blob[6], color=(0, 0, 255))
+            img.draw_string(max_blob[5], max_blob[6]-10, "Arrow", color=(0,0,255))
+    
+    return arrow_detected, arrow_center
+
+def push_ball(img):
+    global sensor_data, speed_L, speed_R, speed_B, img_center
+    global Car_V
+    modify_speed = 0
+
+    cruise = False
+    if sensor_data[0] != 1 or sensor_data[1] != 1 or sensor_data[2] != 1 or sensor_data[3] != 1:
+        cruise=False
+        Tracking(0)
+    else:
+        cruise=True
+        arrow_detected, arrow_center = detect_arrow(img)
+        Car_V=3500
+        if arrow_detected:
+            Bias_x = img_center[0] - arrow_center[0]
+            Bias_y = img_center[1] - arrow_center[1]
+
+            print("Arrow Bias:", Bias_x, Bias_y)
+
+            modify_speed= Bias_x*10
+            speed_L=Car_V + modify_speed
+            speed_R=-Car_V + modify_speed
+            speed_B=modify_speed*1.15
+        else:
+            # 未检测到箭头，继续前进   
+            speed_L=Car_V
+            speed_R=-Car_V
+            speed_B=0
+        motor1.run(speed_R)
+        motor2.run(speed_B)
+        motor3.run(speed_L)
+
+        
 
 while(True):
 
@@ -272,6 +345,7 @@ while(True):
         continue    #跳出本次循环
     elif state == State.KICK_BALL:
         # 找球的函数
+        push_ball(img)
         pass
     elif state==State.TURN_LEFT:
         Tracking(500)
