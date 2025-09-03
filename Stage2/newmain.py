@@ -48,13 +48,19 @@ button_0 = Pin('P30', Pin.IN, Pin.PULL_UP)
 #button_1 = Pin('P31', Pin.IN, Pin.PULL_UP)
 
 # 初始化三路电机控制PWM及DIR
+#R
 motor1 = motor(timer=4, chl=1, freq=10000, pin_pwm="P7", pin_io="P22")
+#B
 motor2 = motor(timer=4, chl=2, freq=10000, pin_pwm="P8", pin_io="P23")
+#L
 motor3 = motor(timer=4, chl=3, freq=10000, pin_pwm="P9", pin_io="P24")
 
 # 霍尔编码器引脚初始化
+#B
 Enc1 = Enc_AB(Timer(12, freq=5), Enc_A="P27", Enc_B="P21")
+#L
 Enc2 = Enc_AB(Timer(13, freq=5), Enc_A="P28", Enc_B="P29")
+#R
 Enc3 = Enc_AB(Timer(14, freq=5), Enc_A="P25", Enc_B="P26")
 
 sensor.reset()      # 初始化摄像头
@@ -159,9 +165,9 @@ def Tracking():
     speed_R = max(-8000, min(8000, speed_R))  
     speed_B = max(-8000, min(8000, speed_B)) 
     
-    motor1.run(speed_L)
-    motor2.run(speed_R)
-    motor3.run(speed_B)
+    motor1.run(speed_R)
+    motor2.run(speed_B)
+    motor3.run(speed_L)
 
 
 
