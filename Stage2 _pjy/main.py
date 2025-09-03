@@ -1,91 +1,98 @@
-"""
---- 巡线避障中心停车任务三参考程序，为能快速理解程序，特别写了较为详细的注释
-"""
-# --------------------------------导入外部文件中的包和模块减↓↓↓----------------------------
-import sensor, image, time, display     # 导入摄像头传感器，图像，时间，显示器相关包
-from pyb import Pin,Timer               # 从pyb包中导入Pin，Timer模块
-from pid import PID                     # 导入PID
-from LQ_Module import motor, Enc_AB     # 从LQ_Module文件中导入motor
+import sensor, image, time, display
+from pyb import Pin,Timer
+from pid import PID
+from LQ_Module import motor, Enc_AB
 
-import Receive                          # 导入Receive模块，用于串口接收数据
-# ================================== 主程序 ======================================
+import Receive
+import template_matching_1
 
-# --------------------------------设置初始变量、参数↓↓↓--------------------------------------
-# 设置要寻找的线的阈值的阈值（色块法）
-line_threshold = [
-    (0, 19, -7, 12, -5, 7),  # 黑色，请在实际使用场景中采集
-    #(0, 35, -14, 13, -14, 15),
-    (6, 44, -5, 10, -2, 12)
-]
+class State:
+    LINE_FOLLOWING = 1
+    OBSTACLE_AVOIDANCE = 2
+    CHOOSE_PATH = 3
+    KICK_BALL = 4
+    TURN_LEFT = 5
+    TURN_RIGHT = 6
+    TURN_TO_BRANCH = 7
 
-# 传感器数据
-sensor_data = [0, 0, 0, 0]  # 四个传感器数据暂存数组
+sensor_data = [0, 0, 0, 0]
 
-# 障碍物的阈值，可通过上面菜单中的阈值编辑器筛选需要的阈值
-obstacle_threshold = [
-#                    (24, 71, 28, 87, 0, 55)      #R
-                   (38, 63, -62, -41, 33, 61),    #G
-                   (22, 46, -52, -34, 31, 51)
-                ]
+start_flag = False
 
-# 中心停车图标阈值
-Stop_threshold = [
-                    (14, 28, 11, 37, -22, -6),    # 紫色
-                    (20, 43, 10, 31, -16, 10)
-                ]
-size_threshold = 7250   # 障碍物大小为此值时切换成避障模式
-obstacle_flag = 0       # 障碍物标志位，是否识别到障碍物
-start_flag = False      # 电机转动标志位，通过K0按键切换，为True时电机转动，否则电机不转
+state = State.LINE_FOLLOWING
 
-encoder_value = 0       # 编码器累计值(用于记录后轮编码器转动距离)
-min_speed = 2000        # 最小速度（电机的死区）
-speed = 4000            # 目标速度（控制整体前进速度）
+encoder_value = 0
+min_speed = 2000
+speed = 4000
 
-speed_L = 0             # 左轮速度暂存全局变量（各电机的实际速度值：基准±巡线偏差值）
+E_V = 0 # 误差值
+Car_V = 0   # 车体速度
+output = 0  # PID输出值
+
+speed_L = 0             # 左轮速度暂存全局变量
 speed_R = 0             # 右轮速度暂存全局变量
 speed_B = 0             # 后轮速度暂存全局变量
 
-# PID 参数
+pid_infra = PID(p = 1000.0, i = 0, d = 0, imax = 6000.0)    # 循迹
 pid_x = PID(p = 150,i = 0, d = 0,imax = 50)    # 用于控制摄像头一直朝向障碍物
-
-# ===============================各个外设初始化↓↓↓========================================
-
-# ---------------------------TFT-LCD显示初始化↓↓↓--------------------------------------
 
 lcd = display.SPIDisplay()      # 初始化显示屏（参数默认-空）
 lcd.clear()                     # 清屏
-pic = image.Image("/pic0.jpg")  # 读取图片
-lcd.write(pic)                  # 显示图片
 
-# ------------------------------按键初始化↓↓↓--------------------------------------
+
 #按键初始化,按键扫描，母版上K0,K1,K2分别对应P30,P31,P1
 button_0 = Pin('P30', Pin.IN, Pin.PULL_UP)
 #button_1 = Pin('P31', Pin.IN, Pin.PULL_UP)
 
-# -----------------------------初始化三路电机控制PWM及DIR↓↓↓-------------------------------------
-# 电机引脚初始化
+# 初始化三路电机控制PWM及DIR
+#R
 motor1 = motor(timer=4, chl=1, freq=10000, pin_pwm="P7", pin_io="P22")
+#B
 motor2 = motor(timer=4, chl=2, freq=10000, pin_pwm="P8", pin_io="P23")
+#L
 motor3 = motor(timer=4, chl=3, freq=10000, pin_pwm="P9", pin_io="P24")
 
-
-# --------------------------初始化霍尔编码器引脚↓↓↓-----------------------------------
 # 霍尔编码器引脚初始化
+#B
 Enc1 = Enc_AB(Timer(12, freq=5), Enc_A="P27", Enc_B="P21")
+#L
 Enc2 = Enc_AB(Timer(13, freq=5), Enc_A="P28", Enc_B="P29")
+#R
 Enc3 = Enc_AB(Timer(14, freq=5), Enc_A="P25", Enc_B="P26")
 
-# -----------------------------初始化摄像头↓↓↓-------------------------------------
 sensor.reset()      # 初始化摄像头
 sensor.set_hmirror(True)# 镜像（如果视觉模块倒着安装，则开启这个镜像）
+sensor.set_vflip(True)   # 翻转（如果视觉模块倒着安装，则开启这个翻转）
 sensor.set_pixformat(sensor.RGB565) # 采集格式（彩色图像采集）
-sensor.set_framesize(sensor.LCD)    # 像素大小 80X60
+sensor.set_framesize(sensor.QQVGA)    # 像素大小是160X120
+#需要修改roi
 sensor.skip_frames(time = 2000)     # 等待初始化完成
 sensor.set_auto_gain(False) # must be turned off for color tracking
 sensor.set_auto_whitebal(False) # must be turned off for color tracking
 
-# -----------------------------自定义函数↓↓↓-------------------------------------
-#在色块集中找到面积最大的色块
+template_lm = image.Image("L_M.pgm")
+template_ls = image.Image("L_S.pgm")
+template_ll = image.Image("L_L.pgm")
+template_rm = image.Image("R_M.pgm")
+template_rs = image.Image("R_S.pgm")
+template_rl = image.Image("R_L.pgm")
+template_b1_1 = image.Image("branch1_1.pgm")
+template_b2_1 = image.Image("branch2_1.pgm")
+
+clock = time.clock()
+
+frame_counter = 0
+DETECTION_CYCLE = 3
+
+obstacle_detected = False
+obstacle_area = 0
+
+ball_detected = False
+ball_position = (0, 0)
+
+BALL_THRESHOLD = (19, 61, 30, 82, 12, 59)
+OBSATCLE_THRESHOLD = (35, 52, -10, 25, -17, 36)
+
 def find_max(blobs):
     max_size=0
     for blob in blobs:
@@ -93,37 +100,152 @@ def find_max(blobs):
             max_blob=blob
             max_size = blob[2]*blob[3]
     return max_blob
-# ================================== 主循环 ======================================
+
+def detect_ball_and_goal(img):
+    global ball_detected, ball_position
+
+    ball_detected = False
+
+    ball_blobs = img.find_blobs([BALL_THRESHOLD],
+                               roi=(0, 0, 160, 120),
+                               pixels_threshold=30,
+                               area_threshold=20,
+                               merge=True)
+    max_ball=None
+    if ball_blobs:
+        max_ball = find_max(ball_blobs)
+        if max_ball.roundness() > 0.4:  # 验证圆形度
+            ball_detected = True
+            ball_position = (max_ball.cx(), max_ball.cy())
+            img.draw_rectangle(max_ball.rect(), color=(0, 255, 0))
+            img.draw_string(max_ball.x(), max_ball.y()-10, "Ball", color=(0,255,0))
+
+    return ball_detected, max_ball
+
+def detect_obstacle(img):
+    global obstacle_detected, obstacle_area
+
+    obstacle_roi = (0, 0, 160, 120)
+
+    blobs = img.find_blobs([OBSATCLE_THRESHOLD],
+                          roi=obstacle_roi,
+                          pixels_threshold=100,
+                          area_threshold=50,
+                          merge=True)
+
+    obstacle_detected = False
+    max_blob = None
+    if blobs:
+        max_blob = find_max(blobs)
+        area_g = max_blob[2] * max_blob[3]
+        if area_g > 1500:  # 障碍物面积阈值
+            obstacle_detected = True
+            obstacle_area = area_g
+            """ # 绘制检测结果（调试用）
+            img.draw_rectangle(max_blob[0:4], color=(255, 0, 0))
+            img.draw_cross(max_blob[5], max_blob[6], color=(255, 0, 0)) """
+
+    return obstacle_detected, max_blob
+
+def Tracking(increment):
+    global speed_L, speed_R, speed_B, Car_V, E_V, output
+
+    if E_V==0:
+        if(sensor_data[0] == 0 and sensor_data[1] == 0 and sensor_data[2] == 0 and sensor_data[3] == 0):
+            Car_V=-4000
+        else:
+            Car_V = 5000
+        speed_L = Car_V
+        speed_R = -Car_V
+        speed_B = 0
+    else:
+        output=pid_infra.get_pid(E_V,1)
+
+        Car_V=0
+
+        speed_L=output
+        speed_R=output
+        speed_B=output
+
+    speed_L += increment
+    speed_R += increment
+    speed_L = max(-15000, min(15000, speed_L))
+    speed_R = max(-15000, min(15000, speed_R))
+    speed_B = max(-15000, min(15000, speed_B))
+
+    motor1.run(speed_R)
+    motor2.run(speed_B)
+    motor3.run(speed_L)
+
+    print("speed_[L,R,B]:",speed_L,speed_R,speed_B)
+    print("Car_V,output",Car_V,output)
+
+
+
 while(True):
-    #按键K0切换电机转动标志位
+
+     #按键K0切换电机转动标志位
     if not button_0.value():                # 如果检测到K0按键按下
         while not button_0.value():         # 等待按键松开
             pass
         start_flag = not(start_flag)        # 按键松开后取反start_flag的值，控制电机启停
-    img = sensor.snapshot()                 # 获取一帧图像
-    # 寻找障碍,roi = [6, 4, 164, 75]
-    blobs = img.find_blobs(obstacle_threshold,pixels_threshold=500, area_threshold=50, merge=True)
-    if blobs:   # 如果有阈值中的色块则执行if下面的代码
-        max_blob = find_max(blobs)          # 筛选所有色块中的最大的那一个
-        area_g = max_blob[2]*max_blob[3]    # 计算障碍物的像素面积
-        #print(area_g)                      # 打印当前障碍物的大小
-        if area_g > size_threshold:         # 如果障碍物面积超过一定大小，则判断为有障碍物，切换标志位
-            obstacle_flag = 1
-    else:
-        obstacle_flag = 0
 
-    #Test
+    img = sensor.snapshot()                 # 获取一帧图像
+
+    frame_counter += 1
+    detection_mode = frame_counter % DETECTION_CYCLE
+
+    if frame_counter >= 1000:
+        frame_counter = 0
+
+    state = State.LINE_FOLLOWING
+    if detection_mode == 0:
+        obstacle_detected, max_blob = detect_obstacle(img)
+
+        if obstacle_detected:
+            state = State.OBSTACLE_AVOIDANCE
+
+        #print("Obstacle:", obstacle_detected, " Area:", obstacle_area)
+        #print(img.get_pixel(40, 30))
+    elif detection_mode == 1:
+        ball_detected, ball_area = detect_ball_and_goal(img)
+
+        if ball_detected:
+            state = State.KICK_BALL
+
+        #print("Ball:", ball_detected, " Area:", ball_area)
+    else:
+        # 修复：使用copy()方法创建副本，再转换为灰度图
+        gray_img = img.copy()     # 创建彩色图像的副本
+        gray_img.to_grayscale()   # 转换为灰度图，不影响原始彩色图像
+        template_matching_index = template_matching_1.find_pattern(gray_img, img)
+        #template_matching_index
+        #0: Left found
+        #1: Right found
+        #2: Branch found
+        #3: Nothing found
+        if template_matching_index==0:
+            state = State.TURN_LEFT
+        elif template_matching_index==1:
+            state = State.TURN_RIGHT
+        elif template_matching_index==2:
+            state = State.TURN_TO_BRANCH
+        else:
+            pass
+
+    print("state:",state)
+
     obstacle_flag = 0
     Receive.Receive_Sensor_Data()   # 接收传感器数据
     sensor_data = Receive.Get_Sensor_Data()  # 获取传感器数据
+    print(sensor_data)
 
-    #输出传感器四个数字
-    print("a=",sensor_data[0]," b=",sensor_data[1]," c=",sensor_data[2]," d=",sensor_data[3])
+    E_V = sensor_data[0]*2 + sensor_data[1]*1.2 - sensor_data[2]*1.2 - sensor_data[3]*2
+    print("E_V:",E_V)
 
-    
-
-    """ # 切换模式 obstacle_flag=1为避障模式 obstacle_flag=0为寻迹模式
-    if obstacle_flag == 1:                      # 执行避障程序
+    if state == State.LINE_FOLLOWING:
+        Tracking(0)
+    elif state == State.OBSTACLE_AVOIDANCE:
         # 避障思路：识别到障碍物后小车绕着障碍物走（镜头对准障碍物），此时对后轮编码器进行累计，达到一定值（实际测量编码器的值）后
         # 判断为绕障碍物走了180°，此时将车模以一定速度旋转一定角度（掉头），然后将标志位切换回循迹模式。
         img.draw_rectangle(max_blob[0:4])       # 画一个矩形，框出障碍
@@ -148,49 +270,16 @@ while(True):
             encoder_value = 0           # 编码器累计值清零
         lcd.write(img)                  # 显示屏显示图像
         continue    #跳出本次循环
+    elif state == State.KICK_BALL:
+        # 找球的函数
+        pass
+    elif state==State.TURN_LEFT:
+        Tracking(500)
+    elif state==State.TURN_RIGHT:
+        Tracking(-500)
+    elif state==State.TURN_TO_BRANCH:
+        Tracking(-500)
     else:
-        #使用img.find_blobs()函数获取图像中的各个色块，将获取到的色块对象保存到blobs
-        blobs = img.find_blobs(line_threshold, roi = [5, 7, 121, 73],pixels_threshold=10, area_threshold=10, merge=True)
-        if blobs:                        # 找到追踪目标
-            blob = find_max(blobs)       # 提取blobs中面积最大的一个黑色色块blob
-            img.draw_rectangle(blob.rect(),color=(255, 0, 0))       # 根据色块blob位置画红色框
-            img.draw_cross(blob.cx(), blob.cy(),color=(0, 0, 255))  # 根据色块位置在中心画蓝色十字
-            x_error = blob.cx()-img.width()/2                       # 计算黑色中心偏差x_error
+        pass
 
-            speed_L = speed + x_error*45            # 控制电机转速进行循迹
-            speed_R = -speed + x_error*45
-
-            if x_error>8:
-                speed_B = min_speed + x_error*20    # 控制后轮电机转速协助转弯
-            elif x_error<-8:
-                speed_B = -min_speed + x_error*20   # 控制后轮电机转速协助转弯
-            else:
-                speed_B = 0
-            print(x_error, speed_L,speed_R,speed_B) # 串行终端打印
-            if start_flag:          # 标志位为True时电机转动
-                motor1.run(speed_L) # 左电机
-                motor2.run(speed_R) # 右电机
-                motor3.run(speed_B) # 后电机
-            else :                  # 否则电机不转
-                motor1.run(0)
-                motor2.run(0)
-                motor3.run(0)
-        else:                           # 没有找到目标，停下不动
-            blobs = img.find_blobs(Stop_threshold, roi = [1, 0, 127, 83],pixels_threshold=5, area_threshold=10, merge=True)
-            if blobs:                   # 找到追踪目标
-                blob = find_max(blobs)  # 提取blobs中面积最大的一个黑色色块blob
-                img.draw_rectangle(blob.rect(),color=(0, 255, 0))           # 根据色块blob位置画绿色框
-                img.draw_cross(blob.cx(), blob.cy(),color=(255, 255, 0))    # 根据色块位置在中心画黄十字
-                #start_flag = 0         # 关闭电机输出
-                lcd.write(pic)          # 显示图片
-                time.sleep_ms(200)      # 延时后停车，在此出调节最终停车的位置是否准确，如果右的车停车前左右偏移，可加入校正（发挥部分）
-                motor1.run(0) # 左电机
-                motor2.run(0) # 右电机
-                motor3.run(0) # 后电机
-                while(1):
-                    pass        # 完成所有任务后，进入死循环等待重启
-            motor1.run(0)
-            motor2.run(0)
-            motor3.run(0)
-    lcd.write(img)  # 显示屏显示图像 """
-
+    lcd.write(img)  # 显示屏显示图像

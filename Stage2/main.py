@@ -33,7 +33,7 @@ speed_L = 0             # 左轮速度暂存全局变量
 speed_R = 0             # 右轮速度暂存全局变量
 speed_B = 0             # 后轮速度暂存全局变量
 
-pid_infra = PID(p = 1500.0, i = 0, d = 0, imax = 2000.0)    # 循迹
+pid_infra = PID(p = 1000.0, i = 0, d = 0, imax = 6000.0)    # 循迹
 pid_x = PID(p = 150,i = 0, d = 0,imax = 50)    # 用于控制摄像头一直朝向障碍物
 
 lcd = display.SPIDisplay()      # 初始化显示屏（参数默认-空）
@@ -64,7 +64,7 @@ sensor.reset()      # 初始化摄像头
 sensor.set_hmirror(True)# 镜像（如果视觉模块倒着安装，则开启这个镜像）
 sensor.set_vflip(True)   # 翻转（如果视觉模块倒着安装，则开启这个翻转）
 sensor.set_pixformat(sensor.RGB565) # 采集格式（彩色图像采集）
-sensor.set_framesize(sensor.QQVGA)    # 像素大小不是320X240
+sensor.set_framesize(sensor.QQVGA)    # 像素大小是160X120
 #需要修改roi
 sensor.skip_frames(time = 2000)     # 等待初始化完成
 sensor.set_auto_gain(False) # must be turned off for color tracking
@@ -91,7 +91,7 @@ ball_detected = False
 ball_position = (0, 0)
 
 BALL_THRESHOLD = (19, 61, 30, 82, 12, 59)
-OBSATCLE_THRESHOLD = (19, 53, -19, -1, -16, 31)
+OBSATCLE_THRESHOLD = (35, 52, -10, 25, -17, 36)
 
 def find_max(blobs):
     max_size=0
@@ -107,7 +107,7 @@ def detect_ball_and_goal(img):
     ball_detected = False
 
     ball_blobs = img.find_blobs([BALL_THRESHOLD],
-                               roi=(0, 0, 320, 240),
+                               roi=(0, 0, 160, 120),
                                pixels_threshold=30,
                                area_threshold=20,
                                merge=True)
@@ -125,7 +125,7 @@ def detect_ball_and_goal(img):
 def detect_obstacle(img):
     global obstacle_detected, obstacle_area
 
-    obstacle_roi = (0, 0, 320, 240)
+    obstacle_roi = (0, 0, 160, 120)
 
     blobs = img.find_blobs([OBSATCLE_THRESHOLD],
                           roi=obstacle_roi,
@@ -152,14 +152,15 @@ def Tracking(increment):
 
     if E_V==0:
         if(sensor_data[0] == 0 and sensor_data[1] == 0 and sensor_data[2] == 0 and sensor_data[3] == 0):
-            Car_V=-3000
+            Car_V=-4000
         else:
-            Car_V = 4000
-            speed_L = Car_V
-            speed_R = -Car_V
-            speed_B = 0
+            Car_V = 5000
+        speed_L = Car_V
+        speed_R = -Car_V
+        speed_B = 0
     else:
         output=pid_infra.get_pid(E_V,1)
+
         Car_V=0
 
         speed_L=output
@@ -168,13 +169,16 @@ def Tracking(increment):
 
     speed_L += increment
     speed_R += increment
-    speed_L = max(-8000, min(8000, speed_L))
-    speed_R = max(-8000, min(8000, speed_R))
-    speed_B = max(-8000, min(8000, speed_B))
+    speed_L = max(-15000, min(15000, speed_L))
+    speed_R = max(-15000, min(15000, speed_R))
+    speed_B = max(-15000, min(15000, speed_B))
 
     motor1.run(speed_R)
     motor2.run(speed_B)
     motor3.run(speed_L)
+
+    print("speed_[L,R,B]:",speed_L,speed_R,speed_B)
+    print("Car_V,output",Car_V,output)
 
 
 
@@ -196,20 +200,20 @@ while(True):
 
     state = State.LINE_FOLLOWING
     if detection_mode == 0:
-        obstacle_detected, obstacle_area = detect_obstacle(img)
+        obstacle_detected, max_blob = detect_obstacle(img)
 
         if obstacle_detected:
             state = State.OBSTACLE_AVOIDANCE
 
-        print("Obstacle:", obstacle_detected, " Area:", obstacle_area)
-        print(img.get_pixel(40, 30))
+        #print("Obstacle:", obstacle_detected, " Area:", obstacle_area)
+        #print(img.get_pixel(40, 30))
     elif detection_mode == 1:
         ball_detected, ball_area = detect_ball_and_goal(img)
 
         if ball_detected:
             state = State.KICK_BALL
 
-        print("Ball:", ball_detected, " Area:", ball_area)
+        #print("Ball:", ball_detected, " Area:", ball_area)
     else:
         # 修复：使用copy()方法创建副本，再转换为灰度图
         gray_img = img.copy()     # 创建彩色图像的副本
@@ -229,12 +233,15 @@ while(True):
         else:
             pass
 
+    print("state:",state)
+
     obstacle_flag = 0
     Receive.Receive_Sensor_Data()   # 接收传感器数据
     sensor_data = Receive.Get_Sensor_Data()  # 获取传感器数据
     print(sensor_data)
 
     E_V = sensor_data[0]*2 + sensor_data[1]*1.2 - sensor_data[2]*1.2 - sensor_data[3]*2
+    print("E_V:",E_V)
 
     if state == State.LINE_FOLLOWING:
         Tracking(0)
