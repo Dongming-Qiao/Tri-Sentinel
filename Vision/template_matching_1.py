@@ -12,19 +12,6 @@ import os
 current_path = os.getcwd()
 print("当前工作路径：", current_path)
 
-# 重置传感器
-sensor.reset()
-
-# 设置为彩色模式，确保帧缓冲区是彩色的
-sensor.set_pixformat(sensor.RGB565)
-sensor.set_framesize(sensor.QQVGA)
-
-# 传感器参数设置
-sensor.set_contrast(1)
-sensor.set_gainceiling(16)
-sensor.set_vflip(True)
-sensor.set_hmirror(True)
-
 # 加载模板
 template_lm = image.Image("L_M.pgm")
 template_ls = image.Image("L_S.pgm")
@@ -95,18 +82,3 @@ def find_pattern(gray_img, color_img):
         Ans = 2
     return Ans
 
-# 主循环
-while True:
-    clock.tick()
-    # 获取彩色图像（帧缓冲区为彩色）
-    color_img = sensor.snapshot()
-
-    # 修复：使用copy()方法创建副本，再转换为灰度图
-    gray_img = color_img.copy()  # 创建彩色图像的副本
-    gray_img.to_grayscale()      # 转换为灰度图，不影响原始彩色图像
-
-    # 执行模板匹配
-    result = find_pattern(gray_img, color_img)
-
-    # 此时color_img仍然是彩色的，帧缓冲区保持彩色状态
-    # print(clock.fps())

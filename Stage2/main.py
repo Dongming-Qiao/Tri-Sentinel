@@ -38,8 +38,7 @@ pid_x = PID(p = 150,i = 0, d = 0,imax = 50)    # 用于控制摄像头一直朝�
 
 lcd = display.SPIDisplay()      # 初始化显示屏（参数默认-空）
 lcd.clear()                     # 清屏
-pic = image.Image("/pic0.jpg")  # 读取图片
-lcd.write(pic)
+
 
 #按键初始化,按键扫描，母版上K0,K1,K2分别对应P30,P31,P1
 button_0 = Pin('P30', Pin.IN, Pin.PULL_UP)
@@ -70,6 +69,15 @@ sensor.set_framesize(sensor.QQVGA)    # 像素大小不是320X240
 sensor.skip_frames(time = 2000)     # 等待初始化完成
 sensor.set_auto_gain(False) # must be turned off for color tracking
 sensor.set_auto_whitebal(False) # must be turned off for color tracking
+
+template_lm = image.Image("L_M.pgm")
+template_ls = image.Image("L_S.pgm")
+template_ll = image.Image("L_L.pgm")
+template_rm = image.Image("R_M.pgm")
+template_rs = image.Image("R_S.pgm")
+template_rl = image.Image("R_L.pgm")
+template_b1_1 = image.Image("branch1_1.pgm")
+template_b2_1 = image.Image("branch2_1.pgm")
 
 clock = time.clock()
 
@@ -224,6 +232,7 @@ while(True):
     obstacle_flag = 0
     Receive.Receive_Sensor_Data()   # 接收传感器数据
     sensor_data = Receive.Get_Sensor_Data()  # 获取传感器数据
+    print(sensor_data)
 
     E_V = sensor_data[0]*2 + sensor_data[1]*1.2 - sensor_data[2]*1.2 - sensor_data[3]*2
 
