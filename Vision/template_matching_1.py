@@ -41,17 +41,17 @@ def find_pattern(gray_img, color_img):
     #3: Nothing found
 
     Ans = 3
-    ll = find_image(template_ll, gray_img, color_img,0.7)
+    ll = find_image(template_ll, gray_img, color_img,0.6)
     if ll:
         print("Find ll!")
         Ans = 0
 
-    lm = find_image(template_lm, gray_img, color_img,0.7)
+    lm = find_image(template_lm, gray_img, color_img,0.6)
     if lm:
         print("Find lm!")
         Ans = 0
 
-    ls = find_image(template_ls, gray_img, color_img,0.7)
+    ls = find_image(template_ls, gray_img, color_img,0.6)
     if ls:
         print("Find ls!")
         Ans = 0
