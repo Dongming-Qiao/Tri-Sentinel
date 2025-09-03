@@ -150,11 +150,25 @@ def detect_obstacle(img):
 def Tracking(increment):
     global speed_L, speed_R, speed_B, Car_V, E_V, output
 
-    if E_V==0:
-        if(sensor_data[0] == 0 and sensor_data[1] == 0 and sensor_data[2] == 0 and sensor_data[3] == 0):
-            Car_V=-4000
+    if sensor_data[3]==0:
+        #turn right
+        Car_V=0
+        output=3000
+        speed_L=output
+        speed_R=output
+        speed_B=output
+    elif (sensor_data[0] == 1 and sensor_data[1] == 1 and sensor_data[2] == 1 and sensor_data[3]==1 ):
+        #turn left
+        Car_V=0
+        output=-3000
+        speed_L=output
+        speed_R=output
+        speed_B=output
+    elif E_V==0:
+        if(sensor_data[0] == 1 and sensor_data[1] == 1 and sensor_data[2] == 1):
+            Car_V=-3500
         else:
-            Car_V = 5000
+            Car_V =3500
         speed_L = Car_V
         speed_R = -Car_V
         speed_B = 0
@@ -201,7 +215,7 @@ while(True):
     state = State.LINE_FOLLOWING
     if detection_mode == 0:
         obstacle_detected, max_blob = detect_obstacle(img)
-
+        obstacle_detected=0#close
         if obstacle_detected:
             state = State.OBSTACLE_AVOIDANCE
 
@@ -240,7 +254,7 @@ while(True):
     sensor_data = Receive.Get_Sensor_Data()  # 获取传感器数据
     print(sensor_data)
 
-    E_V = sensor_data[0]*2 + sensor_data[1]*1.2 - sensor_data[2]*1.2 - sensor_data[3]*2
+    E_V = sensor_data[0]*2 + sensor_data[1]*0 - sensor_data[2]*2 - sensor_data[3]*0
     print("E_V:",E_V)
 
     if state == State.LINE_FOLLOWING:
