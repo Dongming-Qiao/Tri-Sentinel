@@ -111,7 +111,7 @@ def detect_ball_and_goal(img):
                                pixels_threshold=30,
                                area_threshold=20,
                                merge=True)
-
+    max_ball=None
     if ball_blobs:
         max_ball = find_max(ball_blobs)
         if max_ball.roundness() > 0.4:  # 验证圆形度
@@ -120,7 +120,7 @@ def detect_ball_and_goal(img):
             img.draw_rectangle(max_ball.rect(), color=(0, 255, 0))
             img.draw_string(max_ball.x(), max_ball.y()-10, "Ball", color=(0,255,0))
 
-    return ball_detected
+    return ball_detected, max_ball
 
 def detect_obstacle(img):
     global obstacle_detected, obstacle_area
@@ -151,7 +151,7 @@ def Tracking(increment):
     global speed_L, speed_R, speed_B, Car_V, E_V, output
 
     if E_V==0:
-        if(sensor_data[0] == 0 & sensor_data[1] == 0 & sensor_data[2] == 0 & sensor_data[3] == 0):
+        if(sensor_data[0] == 0 and sensor_data[1] == 0 and sensor_data[2] == 0 and sensor_data[3] == 0):
             Car_V=-3000
         else:
             Car_V = 4000
@@ -196,7 +196,7 @@ while(True):
 
     state = State.LINE_FOLLOWING
     if detection_mode == 0:
-        obstacle_detected = detect_obstacle(img)
+        obstacle_detected, obstacle_area = detect_obstacle(img)
 
         if obstacle_detected:
             state = State.OBSTACLE_AVOIDANCE
@@ -204,12 +204,12 @@ while(True):
         print("Obstacle:", obstacle_detected, " Area:", obstacle_area)
         print(img.get_pixel(40, 30))
     elif detection_mode == 1:
-        ball_detected, max_blob = detect_ball_and_goal(img)
+        ball_detected, ball_area = detect_ball_and_goal(img)
 
         if ball_detected:
             state = State.KICK_BALL
 
-        print("Ball:", ball_detected)
+        print("Ball:", ball_detected, " Area:", ball_area)
     else:
         # 修复：使用copy()方法创建副本，再转换为灰度图
         gray_img = img.copy()     # 创建彩色图像的副本
