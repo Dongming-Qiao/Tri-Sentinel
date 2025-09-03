@@ -10,18 +10,16 @@ def Receive_Sensor_Data():
         receive = uart.read().decode().strip()  # 将接收到的消息提取出来
         print(receive)
         if(receive[4] == '+'):
-            for i in range(4):
-                sensor_data[0] = 1 if receive[1] == '1' else 0
-                sensor_data[1] = 1 if receive[2] == '1' else 0
-                sensor_data[2] = 1 if receive[3] == '1' else 0
-                sensor_data[3] = 1 if receive[0] == '1' else 0
+            sensor_data[0] = 1 if receive[0] == '1' else 0
+            sensor_data[1] = 1 if receive[1] == '1' else 0
+            sensor_data[2] = 1 if receive[2] == '1' else 0
+            sensor_data[3] = 1 if receive[3] == '1' else 0
 
         else:
-            for i in range(4):
-                sensor_data[0] = -1 if receive[1] == '1' else 0
-                sensor_data[1] = -1 if receive[2] == '1' else 0
-                sensor_data[2] = -1 if receive[3] == '1' else 0
-                sensor_data[3] = -1 if receive[0] == '1' else 0
+            sensor_data[0] = -1 if receive[0] == '1' else 0
+            sensor_data[1] = -1 if receive[1] == '1' else 0
+            sensor_data[2] = -1 if receive[2] == '1' else 0
+            sensor_data[3] = -1 if receive[3] == '1' else 0
     return None
 
 def Get_Sensor_Data():
@@ -31,4 +29,3 @@ while True:
     Receive_Sensor_Data()
     print(sensor_data)
 
-            
