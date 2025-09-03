@@ -167,7 +167,7 @@ def Tracking(increment):
         speed_B=output
 
     speed_L += increment
-    speed_L += increment
+    speed_R += increment
     speed_L = max(-8000, min(8000, speed_L))
     speed_R = max(-8000, min(8000, speed_R))
     speed_B = max(-8000, min(8000, speed_B))
