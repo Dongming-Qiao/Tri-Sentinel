@@ -14,6 +14,8 @@ class State:
     TURN_LEFT = 5
     TURN_RIGHT = 6
     TURN_TO_BRANCH = 7
+    DASH_TO_GOAL = 8
+    BACK_TO_LINE = 9
 
 sensor_data = [0, 0, 0, 0]
 
@@ -33,12 +35,33 @@ speed_L = 0             # 左轮速度暂存全局变量
 speed_R = 0             # 右轮速度暂存全局变量
 speed_B = 0             # 后轮速度暂存全局变量
 
-pid_infra = PID(p = 1000.0, i = 0, d = 0, imax = 6000.0)    # 循迹
+pid_infra = PID(p = 1000.0, i = 0.3, d = -150, imax = 6000.0)    # 循迹
 pid_x = PID(p = 150,i = 0, d = 0,imax = 50)    # 用于控制摄像头一直朝向障碍物
 
 lcd = display.SPIDisplay()      # 初始化显示屏（参数默认-空）
 lcd.clear()                     # 清屏
 
+RIGHT_MAX=60
+right_count=RIGHT_MAX
+
+LEFT_MAX=80
+left_count=LEFT_MAX
+
+FORWARD_MAX=80
+forward_count=FORWARD_MAX
+
+L_WAY_MAX=50
+l_way=L_WAY_MAX
+
+F_WAY_MAX=25
+f_way=F_WAY_MAX
+
+DASH_MAX=25
+dash=DASH_MAX
+
+direction_keep=0
+
+green_arrow_found=0
 
 #按键初始化,按键扫描，母版上K0,K1,K2分别对应P30,P31,P1
 button_0 = Pin('P30', Pin.IN, Pin.PULL_UP)
@@ -70,15 +93,6 @@ sensor.skip_frames(time = 2000)     # 等待初始化完成
 sensor.set_auto_gain(False) # must be turned off for color tracking
 sensor.set_auto_whitebal(False) # must be turned off for color tracking
 
-template_lm = image.Image("L_M.pgm")
-template_ls = image.Image("L_S.pgm")
-template_ll = image.Image("L_L.pgm")
-template_rm = image.Image("R_M.pgm")
-template_rs = image.Image("R_S.pgm")
-template_rl = image.Image("R_L.pgm")
-template_b1_1 = image.Image("branch1_1.pgm")
-template_b2_1 = image.Image("branch2_1.pgm")
-
 clock = time.clock()
 
 frame_counter = 0
@@ -91,7 +105,13 @@ ball_detected = False
 ball_position = (0, 0)
 
 BALL_THRESHOLD = (19, 61, 30, 82, 12, 59)
-OBSATCLE_THRESHOLD = (35, 52, -10, 25, -17, 36)
+OBSATCLE_THRESHOLD = (23, 60, -2, 5, -11, 19)
+OBSATCLE_THRESHOLD_1 = (0, 73, -20, 20, 9, 127)
+ARROW_THRESHOLD = (12, 78, -55, -22, -9, 50)
+
+img_center=(80,60)
+
+has_kicked=0
 
 def find_max(blobs):
     max_size=0
@@ -114,7 +134,7 @@ def detect_ball_and_goal(img):
     max_ball=None
     if ball_blobs:
         max_ball = find_max(ball_blobs)
-        if max_ball.roundness() > 0.4:  # 验证圆形度
+        if max_ball.roundness() > 0.6:  # 验证圆形度
             ball_detected = True
             ball_position = (max_ball.cx(), max_ball.cy())
             img.draw_rectangle(max_ball.rect(), color=(0, 255, 0))
@@ -127,10 +147,10 @@ def detect_obstacle(img):
 
     obstacle_roi = (0, 0, 160, 120)
 
-    blobs = img.find_blobs([OBSATCLE_THRESHOLD],
+    blobs = img.find_blobs([OBSATCLE_THRESHOLD_1],
                           roi=obstacle_roi,
-                          pixels_threshold=100,
-                          area_threshold=50,
+                          pixels_threshold=800,
+                          area_threshold=100,
                           merge=True)
 
     obstacle_detected = False
@@ -138,48 +158,145 @@ def detect_obstacle(img):
     if blobs:
         max_blob = find_max(blobs)
         area_g = max_blob[2] * max_blob[3]
-        if area_g > 1500:  # 障碍物面积阈值
+        if area_g > 2500:  # 障碍物面积阈值
             obstacle_detected = True
             obstacle_area = area_g
-            """ # 绘制检测结果（调试用）
+
             img.draw_rectangle(max_blob[0:4], color=(255, 0, 0))
-            img.draw_cross(max_blob[5], max_blob[6], color=(255, 0, 0)) """
+            img.draw_cross(max_blob[5], max_blob[6], color=(255, 0, 0))
 
     return obstacle_detected, max_blob
 
-def Tracking(increment):
-    global speed_L, speed_R, speed_B, Car_V, E_V, output
+def detect_arrow(img):
+    blobs = img.find_blobs([ARROW_THRESHOLD],
+                          roi=(0, 0, 160, 120),
+                          pixels_threshold=30,
+                          area_threshold=20,
+                          merge=True)
 
-    if sensor_data[3]==0:
-        #turn right
-        Car_V=0
-        output=3000
-        speed_L=output
-        speed_R=output
-        speed_B=output
-    elif (sensor_data[0] == 1 and sensor_data[1] == 1 and sensor_data[2] == 1 and sensor_data[3]==1 ):
-        #turn left
-        Car_V=0
-        output=-3000
-        speed_L=output
-        speed_R=output
-        speed_B=output
-    elif E_V==0:
-        if(sensor_data[0] == 1 and sensor_data[1] == 1 and sensor_data[2] == 1):
-            Car_V=-3500
-        else:
-            Car_V =3500
-        speed_L = Car_V
-        speed_R = -Car_V
-        speed_B = 0
+    arrow_detected = False
+    arrow_center = (80,60)
+    max_blob = None
+
+    if blobs:
+        max_blob = find_max(blobs)
+        area_g = max_blob[2] * max_blob[3]
+        if area_g > 40:  # 箭头面积阈值
+            arrow_detected = True
+            arrow_center = (max_blob.cx(), max_blob.cy())
+
+            img.draw_rectangle(max_blob[0:4], color=(0, 0, 255))
+            img.draw_cross(max_blob[5], max_blob[6], color=(0, 0, 255))
+            img.draw_string(max_blob[5], max_blob[6]-10, "Arrow", color=(0,0,255))
+
+    return arrow_detected, arrow_center
+
+def push_ball(img):
+    global sensor_data, speed_L, speed_R, speed_B, img_center, green_arrow_found
+    global Car_V
+    modify_speed = 0
+    arrow_detected = False
+
+    cruise = False
+    if sensor_data[0] != 1 or sensor_data[1] != 1 or sensor_data[2] != 1 or sensor_data[3] != 1:
+        cruise = False
+        if green_arrow_found==0:
+            Tracking(0,0)
     else:
-        output=pid_infra.get_pid(E_V,1)
+        cruise=True
+        arrow_detected, arrow_center = detect_arrow(img)
+        Car_V=3500
+        if arrow_detected:
+            Bias_x = -img_center[0] + arrow_center[0]
+            Bias_y = -img_center[1] + arrow_center[1]
 
-        Car_V=0
+            print("Arrow Bias:", Bias_x, Bias_y)
 
-        speed_L=output
-        speed_R=output
-        speed_B=output
+            modify_speed= Bias_x*10
+            speed_L=Car_V + modify_speed
+            speed_R=-Car_V + modify_speed
+            speed_B=modify_speed*1.15
+        else:
+            # 未检测到箭头，继续前进
+            speed_L=Car_V
+            speed_R=-Car_V
+            speed_B=0
+        motor1.run(speed_R)
+        motor2.run(speed_B)
+        motor3.run(speed_L)
+        print("speed_[L,R,B]:",speed_L,speed_R,speed_B)
+    print("cruise",cruise)
+    return arrow_detected
+
+def Tracking(increment, direction):
+    global speed_L, speed_R, speed_B, Car_V, E_V, output
+    #direction=0: follow right, 1: follow left
+    if direction==0:
+        E_V = sensor_data[0]*2 + sensor_data[1]*0 - sensor_data[2]*2 - sensor_data[3]*0
+        print("E_V:",E_V)
+        if sensor_data[3]==0:
+            #turn right
+            Car_V=0
+            output=3000
+            speed_L=output
+            speed_R=output
+            speed_B=output
+        elif (sensor_data[0] == 1 and sensor_data[1] == 1 and sensor_data[2] == 1 and sensor_data[3]==1 ):
+            #turn left
+            Car_V=0
+            output=-3000
+            speed_L=output
+            speed_R=output
+            speed_B=output
+        elif E_V==0:
+            if(sensor_data[0] == 1 and sensor_data[1] == 1 and sensor_data[2] == 1):
+                Car_V=-3500
+            else:
+                Car_V =3500
+            speed_L = Car_V
+            speed_R = -Car_V
+            speed_B = 0
+        else:
+            output=pid_infra.get_pid(E_V,1)
+
+            Car_V=0
+
+            speed_L=output
+            speed_R=output
+            speed_B=output
+    else:
+        E_V = sensor_data[0]*0 + sensor_data[1]*2 - sensor_data[2]*0 - sensor_data[3]*2
+        print("E_V:",E_V)
+        if sensor_data[0]==0:
+            #turn left
+            Car_V=0
+            output=-3000
+            speed_L=output
+            speed_R=output
+            speed_B=output
+        elif (sensor_data[0] == 1 and sensor_data[1] == 1 and sensor_data[2] == 1 and sensor_data[3]==1 ):
+            #turn right
+            Car_V=0
+            output=3000
+            speed_L=output
+            speed_R=output
+            speed_B=output
+        elif E_V==0:
+            if(sensor_data[3] == 1 and sensor_data[1] == 1 and sensor_data[2] == 1):
+                Car_V=-3500
+            else:
+                Car_V =3500
+            speed_L = Car_V
+            speed_R = -Car_V
+            speed_B = 0
+        else:
+            output=pid_infra.get_pid(E_V,1)
+
+            Car_V=0
+
+            speed_L=output
+            speed_R=output
+            speed_B=output
 
     speed_L += increment
     speed_R += increment
@@ -194,9 +311,54 @@ def Tracking(increment):
     print("speed_[L,R,B]:",speed_L,speed_R,speed_B)
     print("Car_V,output",Car_V,output)
 
+#矩形求交
+def rect_intersection(rect1, rect2):
+    """
+    计算两个矩形的交集
+
+    参数:
+        rect1: 第一个矩形，格式为(x, y, w, h)，其中(x,y)是左上角坐标，w是宽度，h是高度
+        rect2: 第二个矩形，格式同上
+
+    返回:
+        如果有交集，返回交集矩形(x, y, w, h)；否则返回None
+    """
+    # 解析第一个矩形的参数
+    x1=rect1.x()
+    y1=rect1.y()
+    w1=rect1.w()
+    h1=rect1.h()
+
+    # 计算第一个矩形的右下角坐标
+    x2_1 = x1 + w1
+    y2_1 = y1 + h1
+
+    # 解析第二个矩形的参数
+    x1_2, y1_2, w2, h2 = rect2
+    # 计算第二个矩形的右下角坐标
+    x2_2 = x1_2 + w2
+    y2_2 = y1_2 + h2
+
+    # 计算交集矩形的左上角坐标
+    inter_x = max(x1, x1_2)
+    inter_y = max(y1, y1_2)
+
+    # 计算交集矩形的右下角坐标
+    inter_x2 = min(x2_1, x2_2)
+    inter_y2 = min(y2_1, y2_2)
+
+    # 判断是否存在交集
+    if inter_x < inter_x2 and inter_y < inter_y2:
+        # 计算交集矩形的宽度和高度
+        inter_w = inter_x2 - inter_x
+        inter_h = inter_y2 - inter_y
+        return (inter_x, inter_y, inter_w, inter_h)
+    else:
+        return None
 
 
 while(True):
+    print(green_arrow_found)
 
      #按键K0切换电机转动标志位
     if not button_0.value():                # 如果检测到K0按键按下
@@ -212,40 +374,62 @@ while(True):
     if frame_counter >= 1000:
         frame_counter = 0
 
-    state = State.LINE_FOLLOWING
-    if detection_mode == 0:
-        obstacle_detected, max_blob = detect_obstacle(img)
-        obstacle_detected=0#close
-        if obstacle_detected:
-            state = State.OBSTACLE_AVOIDANCE
+    if state!=State.OBSTACLE_AVOIDANCE and state!=State.KICK_BALL and state!=State.DASH_TO_GOAL and state!=State.BACK_TO_LINE:
+        state = State.LINE_FOLLOWING
+        if detection_mode == 0:
+            #color_matching
+            obstacle_detected_color, max_blob = detect_obstacle(img)
+            if max_blob==None or max_blob.density()<0.6:
+                obstacle_detected_color=0
 
-        #print("Obstacle:", obstacle_detected, " Area:", obstacle_area)
-        #print(img.get_pixel(40, 30))
-    elif detection_mode == 1:
-        ball_detected, ball_area = detect_ball_and_goal(img)
 
-        if ball_detected:
-            state = State.KICK_BALL
+            #template_matching
+            gray_img = img.copy()     # 创建彩色图像的副本
+            gray_img.to_grayscale()   # 转换为灰度图，不影响原始彩色图像
+            obstacle_detected_template= template_matching_1.find_obstacle(gray_img, img)
 
-        #print("Ball:", ball_detected, " Area:", ball_area)
-    else:
-        # 修复：使用copy()方法创建副本，再转换为灰度图
-        gray_img = img.copy()     # 创建彩色图像的副本
-        gray_img.to_grayscale()   # 转换为灰度图，不影响原始彩色图像
-        template_matching_index = template_matching_1.find_pattern(gray_img, img)
-        #template_matching_index
-        #0: Left found
-        #1: Right found
-        #2: Branch found
-        #3: Nothing found
-        if template_matching_index==0:
-            state = State.TURN_LEFT
-        elif template_matching_index==1:
-            state = State.TURN_RIGHT
-        elif template_matching_index==2:
-            state = State.TURN_TO_BRANCH
+            obstacle_detected=False
+            if obstacle_detected_color and obstacle_detected_template:
+                inter_area=rect_intersection(max_blob, obstacle_detected_template)
+                if inter_area:
+
+                    if (inter_area[2]*inter_area[3])/(obstacle_detected_template[2]*obstacle_detected_template[3])>0.7:
+                        obstacle_detected=True
+                    if obstacle_detected:
+                        # 在彩色图像上绘制匹配框
+                        img.draw_rectangle(obstacle_detected_template, color=(255, 0, 255))  # 紫色框
+
+            #change state
+            if obstacle_detected:
+                state = State.OBSTACLE_AVOIDANCE
+            #print("Obstacle:", obstacle_detected, " Area:", obstacle_area)
+            #print(img.get_pixel(40, 30))
+        elif detection_mode == 1:
+            ball_detected, ball_area = detect_ball_and_goal(img)
+
+            if ball_detected and not has_kicked:
+                state = State.KICK_BALL
+                has_kicked=1
+
+            #print("Ball:", ball_detected, " Area:", ball_area)
         else:
-            pass
+            # 修复：使用copy()方法创建副本，再转换为灰度图
+            gray_img = img.copy()     # 创建彩色图像的副本
+            gray_img.to_grayscale()   # 转换为灰度图，不影响原始彩色图像
+            template_matching_index = template_matching_1.find_pattern(gray_img, img)
+            #template_matching_index
+            #0: Left found
+            #1: Right found
+            #2: Branch found
+            #3: Nothing found
+            if template_matching_index==0:
+                state = State.TURN_LEFT
+            elif template_matching_index==1:
+                state = State.TURN_RIGHT
+            elif template_matching_index==2:
+                state = State.TURN_TO_BRANCH
+            else:
+                pass
 
     print("state:",state)
 
@@ -254,45 +438,126 @@ while(True):
     sensor_data = Receive.Get_Sensor_Data()  # 获取传感器数据
     print(sensor_data)
 
-    E_V = sensor_data[0]*2 + sensor_data[1]*0 - sensor_data[2]*2 - sensor_data[3]*0
-    print("E_V:",E_V)
-
     if state == State.LINE_FOLLOWING:
-        Tracking(0)
+        Tracking(increment=0, direction=direction_keep)
+        right_count=RIGHT_MAX
+        left_count=LEFT_MAX
+        forward_count=FORWARD_MAX
+        l_way=L_WAY_MAX
+        f_way=F_WAY_MAX
+        green_arrow_found=0
     elif state == State.OBSTACLE_AVOIDANCE:
-        # 避障思路：识别到障碍物后小车绕着障碍物走（镜头对准障碍物），此时对后轮编码器进行累计，达到一定值（实际测量编码器的值）后
-        # 判断为绕障碍物走了180°，此时将车模以一定速度旋转一定角度（掉头），然后将标志位切换回循迹模式。
-        img.draw_rectangle(max_blob[0:4])       # 画一个矩形，框出障碍
-        img.draw_cross(max_blob[5], max_blob[6])# 障碍中间画一个十字
-        area_g = max_blob[2] * max_blob[3]      # 再次计算障碍标识的面积
-        error_x = 70 - max_blob[5]              # 障碍中心点与中间的偏差，目的是使镜头一直对着障碍物,以控制障碍物与车的距离，配合后面的编码器累计值完成绕行
-        duty_x = pid_x.get_pid(error_x,1)       # pid运算
-        #print(duty_x)
-        speed_L =  -duty_x              # PID计算出来的值交给电机速度变量如果加距离控制则：-duty_s
-        speed_R =  -duty_x              # PID计算出来的值交给电机速度变量如果加距离控制则：+duty_s
-        motor1.run(speed_L)             # 左电机
-        motor2.run(speed_R)             # 右电机
-        motor3.run(4950)                # 后电机  绕障碍旋转，如果转不动，可以增大这个值
-        encoder_value += Enc3.Get()     # 编码器开始累计值，累计到一定值后进行旋转180°继续循迹黑线
-
-        if encoder_value > 3050 or encoder_value < -3050:   # 到达预定位置，若error_x， 后的数字越大表示车离障碍物中心越远，想要到达预定位置就需要走更远，编码器的预定值就需要增大
-            motor1.run(2500)            # 左电机
-            motor2.run(2500)            # 右电机
-            motor3.run(2500)            # 后电机
-            time.sleep_ms(1500)
-            obstacle_flag = 0           # 清除标志位，切换到正常寻迹模式
-            encoder_value = 0           # 编码器累计值清零
-        lcd.write(img)                  # 显示屏显示图像
-        continue    #跳出本次循环
+        get_pattern=(sensor_data[0] == 0 and sensor_data[1] == 0 and sensor_data[2] == 0)or(sensor_data[0] == 0 and sensor_data[1] == 0)
+        if right_count>0:
+            right_count-=1
+            #right
+            speed_R=0
+            speed_B=-3500
+            speed_L=3500
+        elif forward_count>0:
+            forward_count-=1
+            #forward
+            speed_R=-3000
+            speed_B=0
+            speed_L=3000
+        elif not get_pattern:
+            #left
+            speed_R=-3500
+            speed_B=3500
+            speed_L=0
+        else:
+            state=State.LINE_FOLLOWING
+            speed_R=0
+            speed_B=0
+            speed_L=0
+        motor1.run(speed_R)
+        motor2.run(speed_B)
+        motor3.run(speed_L)
     elif state == State.KICK_BALL:
+        #调试用
+        detect_ball_and_goal(img)
         # 找球的函数
-        pass
+        arrow_detected_temp = push_ball(img)
+        if green_arrow_found==0:
+            green_arrow_found=arrow_detected_temp
+        if green_arrow_found:
+            #检查是否到终点
+            get_end_0000=(sensor_data[0] == 0 and sensor_data[1] == 0 and sensor_data[2] == 0 and sensor_data[3] == 0)
+            get_end_x000=(sensor_data[1] == 0 and sensor_data[2] == 0 and sensor_data[3] == 0)
+            get_end_000x=(sensor_data[0] == 0 and sensor_data[1] == 0 and sensor_data[2] == 0)
+            get_end_00xx=(sensor_data[0] == 0 and sensor_data[1] == 0)
+            get_end_xx00=(sensor_data[2] == 0 and sensor_data[3] == 0)
+            get_end=get_end_0000 or get_end_x000 or get_end_000x or get_end_00xx or get_end_xx00
+            if get_end:
+                speed_R=0
+                speed_B=0
+                speed_L=0
+                motor1.run(speed_R)
+                motor2.run(speed_B)
+                motor3.run(speed_L)
+                state=State.DASH_TO_GOAL
+                dash=DASH_MAX
+    elif state==State.DASH_TO_GOAL:
+        if dash>0:
+            dash-=1
+            speed_R=-3500
+            speed_B=0
+            speed_L=3500
+        else:
+            state=State.BACK_TO_LINE
+            speed_R=0
+            speed_B=0
+            speed_L=0
+
+        motor1.run(speed_R)
+        motor2.run(speed_B)
+        motor3.run(speed_L)
+    elif state==State.BACK_TO_LINE:
+        get_white_0000=(sensor_data[0] == 0 and sensor_data[1] == 0 and sensor_data[2] == 0 and sensor_data[3] == 0)
+        get_white_00xx=(sensor_data[0] == 0 and sensor_data[1] == 0)
+        get_white_xx00=(sensor_data[2] == 0 and sensor_data[3] == 0)
+        get_white_000x=(sensor_data[0] == 0 and sensor_data[1] == 0 and sensor_data[2] == 0)
+        get_white_x000=(sensor_data[1] == 0 and sensor_data[2] == 0 and sensor_data[3] == 0)
+        get_white=get_white_0000 or get_white_00xx or get_white_xx00 or get_white_000x or get_white_x000
+        if not get_white:
+            speed_R=4000
+            speed_B=0
+            speed_L=-3500
+        else:
+            state=State.LINE_FOLLOWING
+            speed_R=0
+            speed_B=0
+            speed_L=0
+        motor1.run(speed_R)
+        motor2.run(speed_B)
+        motor3.run(speed_L)
     elif state==State.TURN_LEFT:
-        Tracking(500)
+        #if l_way>0:
+        #    l_way-=1
+        #    speed_R=-3500
+        #    speed_B=3500
+        #    speed_L=0
+        #elif f_way>0:
+        #    f_way-=1
+        #    speed_R=-3500
+        #    speed_B=0
+        #    speed_L=3500
+        #else:
+        #    state=State.LINE_FOLLOWING
+        #    speed_R=0
+        #    speed_B=0
+        #    speed_L=0
+        #motor1.run(speed_R)
+        #motor2.run(speed_B)
+        #motor3.run(speed_L)
+        Tracking(increment=0, direction=1)
+        direction_keep=1
     elif state==State.TURN_RIGHT:
-        Tracking(-500)
+        Tracking(increment=0, direction=0)
+        direction_keep=0
     elif state==State.TURN_TO_BRANCH:
-        Tracking(-500)
+        Tracking(increment=0, direction=0)
+        direction_keep=0
     else:
         pass
 

@@ -9,8 +9,8 @@ from image import SEARCH_EX
 import os
 
 # 获取当前工作路径
-current_path = os.getcwd()
-print("当前工作路径：", current_path)
+#current_path = os.getcwd()
+#print("当前工作路径：", current_path)
 
 # 加载模板
 template_lm = image.Image("L_M.pgm")
@@ -21,6 +21,9 @@ template_rs = image.Image("R_S.pgm")
 template_rl = image.Image("R_L.pgm")
 template_b1_1 = image.Image("branch1_1.pgm")
 template_b2_1 = image.Image("branch2_1.pgm")
+template_o1 = image.Image("obstacle1_M.pgm")
+template_o2 = image.Image("obstacle2_M.pgm")
+template_o3 = image.Image("obstacle3_M.pgm")
 clock = time.clock()
 
 def find_image(template, gray_img, color_img, threshold):
@@ -41,17 +44,17 @@ def find_pattern(gray_img, color_img):
     #3: Nothing found
 
     Ans = 3
-    ll = find_image(template_ll, gray_img, color_img,0.7)
+    ll = find_image(template_ll, gray_img, color_img,0.6)
     if ll:
         print("Find ll!")
         Ans = 0
 
-    lm = find_image(template_lm, gray_img, color_img,0.7)
+    lm = find_image(template_lm, gray_img, color_img,0.6)
     if lm:
         print("Find lm!")
         Ans = 0
 
-    ls = find_image(template_ls, gray_img, color_img,0.7)
+    ls = find_image(template_ls, gray_img, color_img,0.6)
     if ls:
         print("Find ls!")
         Ans = 0
@@ -82,3 +85,17 @@ def find_pattern(gray_img, color_img):
         Ans = 2
     return Ans
 
+def find_obstacle(gray_img, color_img):
+    o1 = find_image(template_o1, gray_img, color_img,0.45)
+    if o1:
+        print("Find o1!")
+
+    o2 = find_image(template_o2, gray_img, color_img,0.45)
+    if o2:
+        print("Find o2!")
+
+    o3 = find_image(template_o3, gray_img, color_img,0.45)
+    if o3:
+        print("Find o3!")
+
+    return o1 or o2 or o3
