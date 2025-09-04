@@ -86,15 +86,15 @@ def find_pattern(gray_img, color_img):
     return Ans
 
 def find_obstacle(gray_img, color_img):
-    o1 = find_image(template_o1, gray_img, color_img,0.65)
+    o1 = find_image(template_o1, gray_img, color_img,0.45)
     if o1:
         print("Find o1!")
 
-    o2 = find_image(template_o2, gray_img, color_img,0.65)
+    o2 = find_image(template_o2, gray_img, color_img,0.45)
     if o2:
         print("Find o2!")
 
-    o3 = find_image(template_o3, gray_img, color_img,0.65)
+    o3 = find_image(template_o3, gray_img, color_img,0.45)
     if o3:
         print("Find o3!")
 

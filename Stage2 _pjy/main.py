@@ -99,6 +99,8 @@ ball_position = (0, 0)
 
 BALL_THRESHOLD = (19, 61, 30, 82, 12, 59)
 OBSATCLE_THRESHOLD = (23, 60, -2, 5, -11, 19)
+OBSATCLE_THRESHOLD_1 = (0, 73, -20, 20, 9, 127)
+
 
 def find_max(blobs):
     max_size=0
@@ -134,7 +136,7 @@ def detect_obstacle(img):
 
     obstacle_roi = (0, 0, 160, 120)
 
-    blobs = img.find_blobs([OBSATCLE_THRESHOLD],
+    blobs = img.find_blobs([OBSATCLE_THRESHOLD_1],
                           roi=obstacle_roi,
                           pixels_threshold=800,
                           area_threshold=100,
@@ -237,6 +239,50 @@ def Tracking(increment, direction):
     print("speed_[L,R,B]:",speed_L,speed_R,speed_B)
     print("Car_V,output",Car_V,output)
 
+#矩形求交
+def rect_intersection(rect1, rect2):
+    """
+    计算两个矩形的交集
+
+    参数:
+        rect1: 第一个矩形，格式为(x, y, w, h)，其中(x,y)是左上角坐标，w是宽度，h是高度
+        rect2: 第二个矩形，格式同上
+
+    返回:
+        如果有交集，返回交集矩形(x, y, w, h)；否则返回None
+    """
+    # 解析第一个矩形的参数
+    x1=rect1.x()
+    y1=rect1.y()
+    w1=rect1.w()
+    h1=rect1.h()
+
+    # 计算第一个矩形的右下角坐标
+    x2_1 = x1 + w1
+    y2_1 = y1 + h1
+
+    # 解析第二个矩形的参数
+    x1_2, y1_2, w2, h2 = rect2
+    # 计算第二个矩形的右下角坐标
+    x2_2 = x1_2 + w2
+    y2_2 = y1_2 + h2
+
+    # 计算交集矩形的左上角坐标
+    inter_x = max(x1, x1_2)
+    inter_y = max(y1, y1_2)
+
+    # 计算交集矩形的右下角坐标
+    inter_x2 = min(x2_1, x2_2)
+    inter_y2 = min(y2_1, y2_2)
+
+    # 判断是否存在交集
+    if inter_x < inter_x2 and inter_y < inter_y2:
+        # 计算交集矩形的宽度和高度
+        inter_w = inter_x2 - inter_x
+        inter_h = inter_y2 - inter_y
+        return (inter_x, inter_y, inter_w, inter_h)
+    else:
+        return None
 
 
 while(True):
@@ -259,18 +305,30 @@ while(True):
         state = State.LINE_FOLLOWING
         if detection_mode == 0:
             #color_matching
-            #obstacle_detected, max_blob = detect_obstacle(img)
-            
+            obstacle_detected_color, max_blob = detect_obstacle(img)
+            if max_blob==None or max_blob.density()<0.6:
+                obstacle_detected_color=0
+
 
             #template_matching
             gray_img = img.copy()     # 创建彩色图像的副本
             gray_img.to_grayscale()   # 转换为灰度图，不影响原始彩色图像
-            obstacle_detected= template_matching_1.find_obstacle(gray_img, img)
-            
-            #closed temporarily
+            obstacle_detected_template= template_matching_1.find_obstacle(gray_img, img)
+
+            obstacle_detected=False
+            if obstacle_detected_color and obstacle_detected_template:
+                inter_area=rect_intersection(max_blob, obstacle_detected_template)
+                if inter_area:
+
+                    if (inter_area[2]*inter_area[3])/(obstacle_detected_template[2]*obstacle_detected_template[3])>0.7:
+                        obstacle_detected=True
+                    if obstacle_detected:
+                        # 在彩色图像上绘制匹配框
+                        img.draw_rectangle(obstacle_detected_template, color=(255, 0, 255))  # 紫色框
+
             #change state
-            #if obstacle_detected:
-            #    state = State.OBSTACLE_AVOIDANCE
+            if obstacle_detected:
+                state = State.OBSTACLE_AVOIDANCE
             #print("Obstacle:", obstacle_detected, " Area:", obstacle_area)
             #print(img.get_pixel(40, 30))
         elif detection_mode == 1:
