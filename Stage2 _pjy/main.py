@@ -301,7 +301,7 @@ while(True):
     if frame_counter >= 1000:
         frame_counter = 0
 
-    if state!=State.OBSTACLE_AVOIDANCE:
+    if state!=State.OBSTACLE_AVOIDANCE and state!=State.KICK_BALL:
         state = State.LINE_FOLLOWING
         if detection_mode == 0:
             #color_matching
