@@ -86,15 +86,6 @@ sensor.skip_frames(time = 2000)     # 等待初始化完成
 sensor.set_auto_gain(False) # must be turned off for color tracking
 sensor.set_auto_whitebal(False) # must be turned off for color tracking
 
-template_lm = image.Image("L_M.pgm")
-template_ls = image.Image("L_S.pgm")
-template_ll = image.Image("L_L.pgm")
-template_rm = image.Image("R_M.pgm")
-template_rs = image.Image("R_S.pgm")
-template_rl = image.Image("R_L.pgm")
-template_b1_1 = image.Image("branch1_1.pgm")
-template_b2_1 = image.Image("branch2_1.pgm")
-
 clock = time.clock()
 
 frame_counter = 0
@@ -267,10 +258,19 @@ while(True):
     if state!=State.OBSTACLE_AVOIDANCE:
         state = State.LINE_FOLLOWING
         if detection_mode == 0:
-            obstacle_detected, max_blob = detect_obstacle(img);
-            if obstacle_detected:
-                state = State.OBSTACLE_AVOIDANCE
+            #color_matching
+            #obstacle_detected, max_blob = detect_obstacle(img)
+            
 
+            #template_matching
+            gray_img = img.copy()     # 创建彩色图像的副本
+            gray_img.to_grayscale()   # 转换为灰度图，不影响原始彩色图像
+            obstacle_detected= template_matching_1.find_obstacle(gray_img, img)
+            
+            #closed temporarily
+            #change state
+            #if obstacle_detected:
+            #    state = State.OBSTACLE_AVOIDANCE
             #print("Obstacle:", obstacle_detected, " Area:", obstacle_area)
             #print(img.get_pixel(40, 30))
         elif detection_mode == 1:
