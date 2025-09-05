@@ -15,7 +15,8 @@ class State:
     TURN_RIGHT = 6
     TURN_TO_BRANCH = 7
     DASH_TO_GOAL = 8
-    BACK_TO_LINE = 9
+    BACK_TO_LINE_BACK = 9
+    BACK_TO_LINE_RIGHT = 10
 
 sensor_data = [0, 0, 0, 0]
 
@@ -35,19 +36,19 @@ speed_L = 0             # 左轮速度暂存全局变量
 speed_R = 0             # 右轮速度暂存全局变量
 speed_B = 0             # 后轮速度暂存全局变量
 
-pid_infra = PID(p = 1000.0, i = 0.3, d = -150, imax = 6000.0)    # 循迹
+pid_infra = PID(p = 800.0, i = 2.0, d = -100, imax = 6000.0)    # 循迹
 pid_x = PID(p = 150,i = 0, d = 0,imax = 50)    # 用于控制摄像头一直朝向障碍物
 
 lcd = display.SPIDisplay()      # 初始化显示屏（参数默认-空）
 lcd.clear()                     # 清屏
 
-RIGHT_MAX=60
+RIGHT_MAX=80
 right_count=RIGHT_MAX
 
 LEFT_MAX=80
 left_count=LEFT_MAX
 
-FORWARD_MAX=80
+FORWARD_MAX=100
 forward_count=FORWARD_MAX
 
 L_WAY_MAX=50
@@ -59,9 +60,17 @@ f_way=F_WAY_MAX
 DASH_MAX=25
 dash=DASH_MAX
 
+PUSH_BALL_COUNT_MAX=150
+push_ball_count=PUSH_BALL_COUNT_MAX
+
+BACK_TO_LINE_BACK_COUNT_MAX=50
+back_to_line_back=BACK_TO_LINE_BACK_COUNT_MAX
+
 direction_keep=0
 
 green_arrow_found=0
+
+big_ball_found=0
 
 #按键初始化,按键扫描，母版上K0,K1,K2分别对应P30,P31,P1
 button_0 = Pin('P30', Pin.IN, Pin.PULL_UP)
@@ -107,7 +116,7 @@ ball_position = (0, 0)
 BALL_THRESHOLD = (19, 61, 30, 82, 12, 59)
 OBSATCLE_THRESHOLD = (23, 60, -2, 5, -11, 19)
 OBSATCLE_THRESHOLD_1 = (0, 73, -20, 20, 9, 127)
-ARROW_THRESHOLD = (12, 78, -55, -22, -9, 50)
+ARROW_THRESHOLD = (10, 100, -95, -18, -9, 56)
 
 img_center=(80,60)
 
@@ -170,8 +179,8 @@ def detect_obstacle(img):
 def detect_arrow(img):
     blobs = img.find_blobs([ARROW_THRESHOLD],
                           roi=(0, 0, 160, 120),
-                          pixels_threshold=30,
-                          area_threshold=20,
+                          pixels_threshold=20,
+                          area_threshold=10,
                           merge=True)
 
     arrow_detected = False
@@ -181,7 +190,7 @@ def detect_arrow(img):
     if blobs:
         max_blob = find_max(blobs)
         area_g = max_blob[2] * max_blob[3]
-        if area_g > 40:  # 箭头面积阈值
+        if area_g > 25:  # 箭头面积阈值
             arrow_detected = True
             arrow_center = (max_blob.cx(), max_blob.cy())
 
@@ -192,7 +201,7 @@ def detect_arrow(img):
     return arrow_detected, arrow_center
 
 def push_ball(img):
-    global sensor_data, speed_L, speed_R, speed_B, img_center, green_arrow_found
+    global sensor_data, speed_L, speed_R, speed_B, img_center, green_arrow_found, push_ball_count, big_ball_found, Enc2, Enc3
     global Car_V
     modify_speed = 0
     arrow_detected = False
@@ -201,25 +210,38 @@ def push_ball(img):
     if sensor_data[0] != 1 or sensor_data[1] != 1 or sensor_data[2] != 1 or sensor_data[3] != 1:
         cruise = False
         if green_arrow_found==0:
-            Tracking(0,0)
+
+            ball_detected, ball_area = detect_ball_and_goal(img)
+            if ball_area!=None and ball_area.area()>720 and ball_area.x()>60 and ball_area.x()<100 or big_ball_found:
+                print("BIG BALL")
+                motor1.run(-3500)
+                motor2.run(0)
+                motor3.run(3500)
+                big_ball_found=1
+            else:
+                Tracking(0,0)
     else:
         cruise=True
         arrow_detected, arrow_center = detect_arrow(img)
-        Car_V=3500
+        Car_V=3200
         if arrow_detected:
             Bias_x = -img_center[0] + arrow_center[0]
             Bias_y = -img_center[1] + arrow_center[1]
 
             print("Arrow Bias:", Bias_x, Bias_y)
 
-            modify_speed= Bias_x*10
+            modify_speed= Bias_x*28
             speed_L=Car_V + modify_speed
             speed_R=-Car_V + modify_speed
             speed_B=modify_speed*1.15
         else:
             # 未检测到箭头，继续前进
-            speed_L=Car_V
-            speed_R=-Car_V
+            Sum=Enc2.Get()-Enc3.Get()
+            print(Enc2.Get())
+            print(Enc3.Get())
+            print(Sum)
+            speed_L= Car_V-Sum*15
+            speed_R=-Car_V-Sum*15
             speed_B=0
         motor1.run(speed_R)
         motor2.run(speed_B)
@@ -261,6 +283,7 @@ def Tracking(increment, direction):
 
             Car_V=0
 
+            output = max(-6000, min(6000, output))
             speed_L=output
             speed_R=output
             speed_B=output
@@ -291,9 +314,9 @@ def Tracking(increment, direction):
             speed_B = 0
         else:
             output=pid_infra.get_pid(E_V,1)
-
             Car_V=0
 
+            output = max(-6000, min(6000, output))
             speed_L=output
             speed_R=output
             speed_B=output
@@ -374,7 +397,7 @@ while(True):
     if frame_counter >= 1000:
         frame_counter = 0
 
-    if state!=State.OBSTACLE_AVOIDANCE and state!=State.KICK_BALL and state!=State.DASH_TO_GOAL and state!=State.BACK_TO_LINE:
+    if state!=State.OBSTACLE_AVOIDANCE and state!=State.KICK_BALL and state!=State.DASH_TO_GOAL and state!=State.BACK_TO_LINE_BACK and state!=State.BACK_TO_LINE_RIGHT:
         state = State.LINE_FOLLOWING
         if detection_mode == 0:
             #color_matching
@@ -445,6 +468,7 @@ while(True):
         forward_count=FORWARD_MAX
         l_way=L_WAY_MAX
         f_way=F_WAY_MAX
+        push_ball_count=PUSH_BALL_COUNT_MAX
         green_arrow_found=0
     elif state == State.OBSTACLE_AVOIDANCE:
         get_pattern=(sensor_data[0] == 0 and sensor_data[1] == 0 and sensor_data[2] == 0)or(sensor_data[0] == 0 and sensor_data[1] == 0)
@@ -499,20 +523,47 @@ while(True):
                 dash=DASH_MAX
     elif state==State.DASH_TO_GOAL:
         if dash>0:
+            arrow_detected, arrow_center = detect_arrow(img)
+            Car_V=3300
+            if arrow_detected:
+                Bias_x = -img_center[0] + arrow_center[0]
+                Bias_y = -img_center[1] + arrow_center[1]
+
+                print("Arrow Bias:", Bias_x, Bias_y)
+
+                modify_speed= Bias_x*15
+                speed_L=Car_V + modify_speed
+                speed_R=-Car_V + modify_speed
+                speed_B=modify_speed*1.15
+            else:
+                # 未检测到箭头，继续前进
+                Sum=Enc2.Get()+Enc3.Get()
+                print(Enc2.Get())
+                print(Enc3.Get())
+                print(Sum)
+                speed_L= Car_V+175
+                speed_R=-Car_V
+                speed_B=0
             dash-=1
-            speed_R=-3500
-            speed_B=0
-            speed_L=3500
         else:
-            state=State.BACK_TO_LINE
+            state=State.BACK_TO_LINE_BACK
             speed_R=0
             speed_B=0
             speed_L=0
+            back_to_line_back_count=BACK_TO_LINE_BACK_COUNT_MAX
 
         motor1.run(speed_R)
         motor2.run(speed_B)
         motor3.run(speed_L)
-    elif state==State.BACK_TO_LINE:
+    elif state==State.BACK_TO_LINE_BACK:
+        if back_to_line_back_count>0:
+            back_to_line_back_count-=1
+            motor1.run(3500)
+            motor2.run(0)
+            motor3.run(-3500)
+        else:
+            state=State.BACK_TO_LINE_RIGHT
+    elif state==State.BACK_TO_LINE_RIGHT:
         get_white_0000=(sensor_data[0] == 0 and sensor_data[1] == 0 and sensor_data[2] == 0 and sensor_data[3] == 0)
         get_white_00xx=(sensor_data[0] == 0 and sensor_data[1] == 0)
         get_white_xx00=(sensor_data[2] == 0 and sensor_data[3] == 0)
@@ -520,9 +571,9 @@ while(True):
         get_white_x000=(sensor_data[1] == 0 and sensor_data[2] == 0 and sensor_data[3] == 0)
         get_white=get_white_0000 or get_white_00xx or get_white_xx00 or get_white_000x or get_white_x000
         if not get_white:
-            speed_R=4000
+            speed_R=-3550
             speed_B=0
-            speed_L=-3500
+            speed_L=3850
         else:
             state=State.LINE_FOLLOWING
             speed_R=0
