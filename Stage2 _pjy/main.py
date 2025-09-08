@@ -48,7 +48,7 @@ right_count=RIGHT_MAX
 LEFT_MAX=80
 left_count=LEFT_MAX
 
-FORWARD_MAX=100
+FORWARD_MAX=80
 forward_count=FORWARD_MAX
 
 L_WAY_MAX=50
@@ -57,7 +57,7 @@ l_way=L_WAY_MAX
 F_WAY_MAX=25
 f_way=F_WAY_MAX
 
-DASH_MAX=25
+DASH_MAX=70
 dash=DASH_MAX
 
 PUSH_BALL_COUNT_MAX=150
@@ -116,11 +116,14 @@ ball_position = (0, 0)
 BALL_THRESHOLD = (19, 61, 30, 82, 12, 59)
 OBSATCLE_THRESHOLD = (23, 60, -2, 5, -11, 19)
 OBSATCLE_THRESHOLD_1 = (0, 73, -20, 20, 9, 127)
-ARROW_THRESHOLD = (10, 100, -95, -18, -9, 56)
+ARROW_THRESHOLD =(32, 79, -83, -23, -9, 57)
+#ARROW_THRESHOLD = (33, 64, -73, -25, -9, 56)
 
-img_center=(80,60)
+img_center=(93,60)
 
 has_kicked=0
+
+flag_stop=0
 
 def find_max(blobs):
     max_size=0
@@ -143,7 +146,8 @@ def detect_ball_and_goal(img):
     max_ball=None
     if ball_blobs:
         max_ball = find_max(ball_blobs)
-        if max_ball.roundness() > 0.6:  # 验证圆形度
+        if max_ball.roundness() > 0.8:
+        # 验证圆形度
             ball_detected = True
             ball_position = (max_ball.cx(), max_ball.cy())
             img.draw_rectangle(max_ball.rect(), color=(0, 255, 0))
@@ -179,8 +183,8 @@ def detect_obstacle(img):
 def detect_arrow(img):
     blobs = img.find_blobs([ARROW_THRESHOLD],
                           roi=(0, 0, 160, 120),
-                          pixels_threshold=20,
-                          area_threshold=10,
+                          pixels_threshold=17,
+                          area_threshold=9,
                           merge=True)
 
     arrow_detected = False
@@ -207,42 +211,48 @@ def push_ball(img):
     arrow_detected = False
 
     cruise = False
-    if sensor_data[0] != 1 or sensor_data[1] != 1 or sensor_data[2] != 1 or sensor_data[3] != 1:
+    if sensor_data[0] != 1 or sensor_data[1] != 1 or sensor_data[2] != 1:
         cruise = False
         if green_arrow_found==0:
 
             ball_detected, ball_area = detect_ball_and_goal(img)
-            if ball_area!=None and ball_area.area()>720 and ball_area.x()>60 and ball_area.x()<100 or big_ball_found:
+            if ball_area!=None and ball_area.area()>680 and ball_area.x()>65 and ball_area.x()<95 or big_ball_found:
                 print("BIG BALL")
                 motor1.run(-3500)
                 motor2.run(0)
                 motor3.run(3500)
                 big_ball_found=1
             else:
-                Tracking(0,0)
+                Tracking(0,0,1)
     else:
         cruise=True
         arrow_detected, arrow_center = detect_arrow(img)
-        Car_V=3200
+        Car_V=3350
         if arrow_detected:
             Bias_x = -img_center[0] + arrow_center[0]
             Bias_y = -img_center[1] + arrow_center[1]
 
             print("Arrow Bias:", Bias_x, Bias_y)
 
-            modify_speed= Bias_x*28
-            speed_L=Car_V + modify_speed
+            modify_speed= Bias_x*15
+            speed_L=Car_V + modify_speed+200
             speed_R=-Car_V + modify_speed
             speed_B=modify_speed*1.15
         else:
             # 未检测到箭头，继续前进
-            Sum=Enc2.Get()-Enc3.Get()
-            print(Enc2.Get())
-            print(Enc3.Get())
-            print(Sum)
-            speed_L= Car_V-Sum*15
-            speed_R=-Car_V-Sum*15
+
+            speed_L= Car_V-0*50
+            speed_R=-Car_V-0*50
             speed_B=0
+            if speed_L<3000 and speed_L>0:
+                speed_L=3000
+            if speed_L>-3000 and speed_L<0:
+                speed_L=-3000
+
+            if speed_R<3000 and speed_R>0:
+                speed_R=3000
+            if speed_R>-3000 and speed_R<0:
+                speed_R=-3000
         motor1.run(speed_R)
         motor2.run(speed_B)
         motor3.run(speed_L)
@@ -250,31 +260,47 @@ def push_ball(img):
     print("cruise",cruise)
     return arrow_detected
 
-def Tracking(increment, direction):
+def Tracking(increment, direction, pushing_ball):
     global speed_L, speed_R, speed_B, Car_V, E_V, output
     #direction=0: follow right, 1: follow left
+    straight_big=3500
+    straight_small=3000
+    rotate_big=3000
+    rotate_small=2800
     if direction==0:
         E_V = sensor_data[0]*2 + sensor_data[1]*0 - sensor_data[2]*2 - sensor_data[3]*0
         print("E_V:",E_V)
         if sensor_data[3]==0:
             #turn right
             Car_V=0
-            output=3000
+            if not pushing_ball:
+                output=rotate_big
+            else:
+                output=rotate_small
             speed_L=output
             speed_R=output
             speed_B=output
         elif (sensor_data[0] == 1 and sensor_data[1] == 1 and sensor_data[2] == 1 and sensor_data[3]==1 ):
             #turn left
             Car_V=0
-            output=-3000
+            if not pushing_ball:
+                output=-rotate_big
+            else:
+                output=-rotate_small
             speed_L=output
             speed_R=output
             speed_B=output
         elif E_V==0:
             if(sensor_data[0] == 1 and sensor_data[1] == 1 and sensor_data[2] == 1):
-                Car_V=-3500
+                if not pushing_ball:
+                    Car_V=-straight_big
+                else:
+                    Car_V=-straight_small
             else:
-                Car_V =3500
+                if not pushing_ball:
+                    Car_V=straight_big
+                else:
+                    Car_V=straight_small
             speed_L = Car_V
             speed_R = -Car_V
             speed_B = 0
@@ -284,6 +310,10 @@ def Tracking(increment, direction):
             Car_V=0
 
             output = max(-6000, min(6000, output))
+            if output<2500 and output>0:
+                output=2500
+            if output>-2500 and output<0:
+                output=-2500
             speed_L=output
             speed_R=output
             speed_B=output
@@ -293,22 +323,34 @@ def Tracking(increment, direction):
         if sensor_data[0]==0:
             #turn left
             Car_V=0
-            output=-3000
+            if not pushing_ball:
+                output=-rotate_big
+            else:
+                output=-rotate_small
             speed_L=output
             speed_R=output
             speed_B=output
         elif (sensor_data[0] == 1 and sensor_data[1] == 1 and sensor_data[2] == 1 and sensor_data[3]==1 ):
             #turn right
             Car_V=0
-            output=3000
+            if not pushing_ball:
+                output=rotate_big
+            else:
+                output=rotate_small
             speed_L=output
             speed_R=output
             speed_B=output
         elif E_V==0:
             if(sensor_data[3] == 1 and sensor_data[1] == 1 and sensor_data[2] == 1):
-                Car_V=-3500
+                if not pushing_ball:
+                    Car_V=-straight_big
+                else:
+                    Car_V=-straight_small
             else:
-                Car_V =3500
+                if not pushing_ball:
+                    Car_V=straight_big
+                else:
+                    Car_V=straight_small
             speed_L = Car_V
             speed_R = -Car_V
             speed_B = 0
@@ -317,6 +359,10 @@ def Tracking(increment, direction):
             Car_V=0
 
             output = max(-6000, min(6000, output))
+            if output<2500 and output>0:
+                output=2500
+            if output>-2500 and output<0:
+                output=-2500
             speed_L=output
             speed_R=output
             speed_B=output
@@ -462,7 +508,7 @@ while(True):
     print(sensor_data)
 
     if state == State.LINE_FOLLOWING:
-        Tracking(increment=0, direction=direction_keep)
+        Tracking(increment=0, direction=direction_keep, pushing_ball=0)
         right_count=RIGHT_MAX
         left_count=LEFT_MAX
         forward_count=FORWARD_MAX
@@ -477,7 +523,7 @@ while(True):
             #right
             speed_R=0
             speed_B=-3500
-            speed_L=3500
+            speed_L=3600
         elif forward_count>0:
             forward_count-=1
             #forward
@@ -498,29 +544,40 @@ while(True):
         motor2.run(speed_B)
         motor3.run(speed_L)
     elif state == State.KICK_BALL:
-        #调试用
-        detect_ball_and_goal(img)
-        # 找球的函数
-        arrow_detected_temp = push_ball(img)
-        if green_arrow_found==0:
-            green_arrow_found=arrow_detected_temp
-        if green_arrow_found:
-            #检查是否到终点
-            get_end_0000=(sensor_data[0] == 0 and sensor_data[1] == 0 and sensor_data[2] == 0 and sensor_data[3] == 0)
-            get_end_x000=(sensor_data[1] == 0 and sensor_data[2] == 0 and sensor_data[3] == 0)
-            get_end_000x=(sensor_data[0] == 0 and sensor_data[1] == 0 and sensor_data[2] == 0)
-            get_end_00xx=(sensor_data[0] == 0 and sensor_data[1] == 0)
-            get_end_xx00=(sensor_data[2] == 0 and sensor_data[3] == 0)
-            get_end=get_end_0000 or get_end_x000 or get_end_000x or get_end_00xx or get_end_xx00
-            if get_end:
-                speed_R=0
-                speed_B=0
-                speed_L=0
-                motor1.run(speed_R)
-                motor2.run(speed_B)
-                motor3.run(speed_L)
-                state=State.DASH_TO_GOAL
-                dash=DASH_MAX
+        if flag_stop<3:
+            #调试用
+            detect_ball_and_goal(img)
+            # 找球的函数
+            arrow_detected_temp = push_ball(img)
+            if green_arrow_found==0:
+                green_arrow_found=arrow_detected_temp
+            if green_arrow_found:
+                #检查是否到终点
+                get_end_0000=(sensor_data[0] == 0 and sensor_data[1] == 0 and sensor_data[2] == 0 and sensor_data[3] == 0)
+                get_end_x000=(sensor_data[1] == 0 and sensor_data[2] == 0 and sensor_data[3] == 0)
+                get_end_000x=(sensor_data[0] == 0 and sensor_data[1] == 0 and sensor_data[2] == 0)
+                get_end_00xx=(sensor_data[0] == 0 and sensor_data[1] == 0)
+                get_end_xx00=(sensor_data[2] == 0 and sensor_data[3] == 0)
+                get_end=get_end_0000 or get_end_x000 or get_end_000x
+                if get_end:
+                    speed_R=0
+                    speed_B=0
+                    speed_L=0
+                    motor1.run(speed_R)
+                    motor2.run(speed_B)
+                    motor3.run(speed_L)
+                    state=State.DASH_TO_GOAL
+                    dash=DASH_MAX
+            flag_stop+=1
+        else:
+            flag_stop=0
+            speed_R=0
+            speed_B=0
+            speed_L=0
+            motor1.run(speed_R)
+            motor2.run(speed_B)
+            motor3.run(speed_L)
+            dash=DASH_MAX
     elif state==State.DASH_TO_GOAL:
         if dash>0:
             arrow_detected, arrow_center = detect_arrow(img)
@@ -531,9 +588,9 @@ while(True):
 
                 print("Arrow Bias:", Bias_x, Bias_y)
 
-                modify_speed= Bias_x*15
+                modify_speed= Bias_x*21
                 speed_L=Car_V + modify_speed
-                speed_R=-Car_V + modify_speed
+                speed_R=-Car_V + modify_speed-200
                 speed_B=modify_speed*1.15
             else:
                 # 未检测到箭头，继续前进
@@ -541,7 +598,7 @@ while(True):
                 print(Enc2.Get())
                 print(Enc3.Get())
                 print(Sum)
-                speed_L= Car_V+175
+                speed_L= Car_V
                 speed_R=-Car_V
                 speed_B=0
             dash-=1
@@ -564,6 +621,7 @@ while(True):
         else:
             state=State.BACK_TO_LINE_RIGHT
     elif state==State.BACK_TO_LINE_RIGHT:
+        direction_keep=0
         get_white_0000=(sensor_data[0] == 0 and sensor_data[1] == 0 and sensor_data[2] == 0 and sensor_data[3] == 0)
         get_white_00xx=(sensor_data[0] == 0 and sensor_data[1] == 0)
         get_white_xx00=(sensor_data[2] == 0 and sensor_data[3] == 0)
@@ -601,13 +659,13 @@ while(True):
         #motor1.run(speed_R)
         #motor2.run(speed_B)
         #motor3.run(speed_L)
-        Tracking(increment=0, direction=1)
+        Tracking(increment=0, direction=1,pushing_ball=0)
         direction_keep=1
     elif state==State.TURN_RIGHT:
-        Tracking(increment=0, direction=0)
+        Tracking(increment=0, direction=0,pushing_ball=0)
         direction_keep=0
     elif state==State.TURN_TO_BRANCH:
-        Tracking(increment=0, direction=0)
+        Tracking(increment=0, direction=0,pushing_ball=0)
         direction_keep=0
     else:
         pass
