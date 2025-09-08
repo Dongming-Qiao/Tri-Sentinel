@@ -18,6 +18,16 @@ class State:
     BACK_TO_LINE_BACK = 9
     BACK_TO_LINE_RIGHT = 10
 
+class BranchState:
+    IDLE=0
+    DETECT=1
+    ADJUST=2
+    COMPLETE=3
+
+branchstate = BranchState.IDLE
+branch_center_x=80
+adjust_action=0
+
 sensor_data = [0, 0, 0, 0]
 
 start_flag = False
@@ -118,6 +128,8 @@ OBSATCLE_THRESHOLD = (23, 60, -2, 5, -11, 19)
 OBSATCLE_THRESHOLD_1 = (0, 73, -20, 20, 9, 127)
 ARROW_THRESHOLD = (10, 100, -95, -18, -9, 56)
 
+LINE_THRESHOLD = (0, 100, -128, 127, -128, 127)
+
 img_center=(80,60)
 
 has_kicked=0
@@ -129,6 +141,28 @@ def find_max(blobs):
             max_blob=blob
             max_size = blob[2]*blob[3]
     return max_blob
+
+def detect_branch(img):
+    # 设置ROI只关注图像中下部，排除主路干扰
+    roi = (20, 0, 120, 80)  # 根据实际情况调整
+    
+    # 使用颜色阈值或边缘检测识别岔路矩形
+    blobs = img.find_blobs([LINE_THRESHOLD],  # 根据实际颜色调整
+                          roi=roi,
+                          pixels_threshold=300,
+                          area_threshold=50,
+                          merge=True)
+    
+    if blobs:
+        max_blob = find_max(blobs)
+        # 验证宽高比是否符合矩形特征
+        if 1.0 < max_blob.w()/max_blob.h() < 5.0:
+            branch_center_x = max_blob.cx()
+            img.draw_rectangle(max_blob.rect(), color=(255, 255, 0))
+            img.draw_cross(max_blob.cx(), max_blob.cy(), color=(255, 255, 0))
+            return True, branch_center_x
+    
+    return False, 80
 
 def detect_ball_and_goal(img):
     global ball_detected, ball_position
@@ -202,11 +236,55 @@ def detect_arrow(img):
 
 def push_ball(img):
     global sensor_data, speed_L, speed_R, speed_B, img_center, green_arrow_found, push_ball_count, big_ball_found, Enc2, Enc3
-    global Car_V
+    global Car_V, branchstate, branch_center_x, adjust_action
     modify_speed = 0
     arrow_detected = False
 
     cruise = False
+
+    if branchstate!=BranchState.COMPLETE:
+        branch_detected,detected_center=detect_branch(img)
+        if branch_detected and branchstate==BranchState.IDLE:
+            branchstate=BranchState.DETECT
+            branch_center_x=detected_center
+        if branchstate==BranchState.DETECT:
+            adjust_bias=branch_center_x-img_center[0]
+            if abs(adjust_bias)<5:
+                branchstate=BranchState.COMPLETE
+                motor1.run(0)
+                motor2.run(0)
+                motor3.run(0)
+                time.sleep(100)
+            else:
+                branchstate=BranchState.ADJUST
+                adjust_action=0
+        elif branchstate==BranchState.ADJUST:
+            branch_detected,detected_center=detect_branch(img)
+            adjust_bias=branch_center_x-img_center[0]
+            if adjust_bias > 0:
+                motor1.run(3500)
+                motor2.run(-3500)
+                motor3.run(0)
+                adjust_action+=1
+                time.sleep_ms(100)
+            else:
+                motor1.run(0)
+                motor2.run(-3500)
+                motor3.run(3500)
+                adjust_action+=1
+                time.sleep_ms(100)
+            
+            if abs(adjust_bias)<5 or adjust_action>10:
+                branchstate=BranchState.COMPLETE
+                time.sleep(100)
+            else:
+                branchstate=BranchState.ADJUST 
+        else:
+            pass
+    else:
+        pass
+
+
     if sensor_data[0] != 1 or sensor_data[1] != 1 or sensor_data[2] != 1 or sensor_data[3] != 1:
         cruise = False
         if green_arrow_found==0:
