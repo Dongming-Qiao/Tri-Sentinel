@@ -154,22 +154,6 @@ float low_pass_filter_l(float new_dis)
 void car_tim(void)
 {
     check_time++;
-
-    switch(state)
-    {
-        case FORWARD:
-            car_V = 800;
-            break;
-        case BACKWARD:
-            car_V = -600;
-            break;
-        case STOP:
-            car_V = 0;
-            break;
-        default:
-            car_V = 0;
-            break;
-    }
     
     // 迷宫状态机处理
     switch(maze_state)
@@ -189,7 +173,7 @@ void car_tim(void)
                 output = 0;     // 保持距离
             }
             
-            state = FORWARD;        // 前进
+            car_V = 800;        // 前进
             
             // 状态转换判断
             if (Car_sensor.Dis_L >= BIG_DISTANCE)
@@ -205,12 +189,12 @@ void car_tim(void)
                 // 前方有障碍，准备右转
                 maze_state = MAZE_TURN_RIGHT;
                 r_actionnum = 7;
-                state = STOP;
+                car_V = 0;
             }
             break;
             
         case MAZE_TURN_RIGHT:  // 右转状态
-            state = STOP;          // 停止前进
+            car_V = 0;          // 停止前进
             if (r_actionnum != 0)
             {
                 // 执行右转动作
@@ -225,7 +209,7 @@ void car_tim(void)
             break;
             
         case MAZE_TURN_LEFT:   // 左转状态
-            state = STOP;         // 停止前进
+            car_V = 0;         // 停止前进
             if (l_actionnum != 0)
             {
                 // 执行左转动作
@@ -235,7 +219,7 @@ void car_tim(void)
             else if (forwardnum != 0)
             {
                 // 左转后前进一段距离
-                state = FORWARD;
+                car_V = 800;
                 output = 0;
                 forwardnum--;
             }
