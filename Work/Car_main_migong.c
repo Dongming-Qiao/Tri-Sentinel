@@ -15,6 +15,14 @@ typedef enum {
     MAZE_TURN_LEFT                    // 左转
 } MazeState;
 
+<<<<<<< HEAD
+=======
+#define FORWARD 0
+#define BACKWARD 1
+#define STOP 2
+int state = STOP;
+
+>>>>>>> e33acedc996b8b37508f3b0fb8ecde1118e743a3
 // 动作计数器
 int l_actionnum = 0;                  // 左转动作计数
 int r_actionnum = 0;                  // 右转动作计数
@@ -149,6 +157,25 @@ float low_pass_filter_l(float new_dis)
 void car_tim(void)
 {
     check_time++;
+<<<<<<< HEAD
+=======
+
+    switch(state)
+    {
+        case FORWARD:
+            car_V = 800;
+            break;
+        case BACKWARD:
+            car_V = -600;
+            break;
+        case STOP:
+            car_V = 0;
+            break;
+        default:
+            car_V = 0;
+            break;
+    }
+>>>>>>> e33acedc996b8b37508f3b0fb8ecde1118e743a3
     
     // 迷宫状态机处理
     switch(maze_state)
@@ -168,7 +195,11 @@ void car_tim(void)
                 output = 0;     // 保持距离
             }
             
+<<<<<<< HEAD
             car_V = 800;        // 前进
+=======
+            state = FORWARD;        // 前进
+>>>>>>> e33acedc996b8b37508f3b0fb8ecde1118e743a3
             
             // 状态转换判断
             if (Car_sensor.Dis_L >= BIG_DISTANCE)
@@ -184,12 +215,20 @@ void car_tim(void)
                 // 前方有障碍，准备右转
                 maze_state = MAZE_TURN_RIGHT;
                 r_actionnum = 7;
+<<<<<<< HEAD
                 car_V = 0;
+=======
+                state = STOP;
+>>>>>>> e33acedc996b8b37508f3b0fb8ecde1118e743a3
             }
             break;
             
         case MAZE_TURN_RIGHT:  // 右转状态
+<<<<<<< HEAD
             car_V = 0;          // 停止前进
+=======
+            state = STOP;          // 停止前进
+>>>>>>> e33acedc996b8b37508f3b0fb8ecde1118e743a3
             if (r_actionnum != 0)
             {
                 // 执行右转动作
@@ -204,7 +243,11 @@ void car_tim(void)
             break;
             
         case MAZE_TURN_LEFT:   // 左转状态
+<<<<<<< HEAD
             car_V = 0;         // 停止前进
+=======
+            state = STOP;         // 停止前进
+>>>>>>> e33acedc996b8b37508f3b0fb8ecde1118e743a3
             if (l_actionnum != 0)
             {
                 // 执行左转动作
@@ -214,7 +257,11 @@ void car_tim(void)
             else if (forwardnum != 0)
             {
                 // 左转后前进一段距离
+<<<<<<< HEAD
                 car_V = 800;
+=======
+                state = FORWARD;
+>>>>>>> e33acedc996b8b37508f3b0fb8ecde1118e743a3
                 output = 0;
                 forwardnum--;
             }
@@ -269,4 +316,8 @@ void car_tim(void)
 void Control(void)
 {
     // 预留功能，可根据需要扩展
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> e33acedc996b8b37508f3b0fb8ecde1118e743a3
