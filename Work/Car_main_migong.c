@@ -15,11 +15,6 @@ typedef enum {
     MAZE_TURN_LEFT                    // 左转
 } MazeState;
 
-#define FORWARD 0
-#define BACKWARD 1
-#define STOP 2
-int state = STOP;
-
 // 动作计数器
 int l_actionnum = 0;                  // 左转动作计数
 int r_actionnum = 0;                  // 右转动作计数
