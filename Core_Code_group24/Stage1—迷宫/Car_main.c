@@ -44,8 +44,6 @@ SensorData Car_sensor = {0};          // 传感器数据
 uint8_t Dis_falg = 0;                 // 距离标志
 uint8_t read_flag = 0;                // 读取标志
 
-// PID控制器
-PID_Controller pid = {10.0, 0.0, 0.0, 0.0, 0.0};
 float E_V = 0.0;                      // 误差值
 float output = 0;                     // 控制输出
 

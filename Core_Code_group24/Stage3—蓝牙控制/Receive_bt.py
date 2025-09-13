@@ -1,11 +1,11 @@
 import pyb
 from pyb import UART, LED
 
-#与uart3串口不同，蓝牙接口波特率为9600
-uart = UART(3, 9600)  # Initialize UART3 with baud rate 115200
+# 与uart3串口不同，蓝牙接口波特率为9600
+uart = UART(3, 9600)  # Initialize UART3 with baud rate 9600
 
+action = ""
 
-action=""
 
 def Receive_Data_bt():
     global action
@@ -18,13 +18,12 @@ def Receive_Data_bt():
     """
 
     # 等待有数据可读时再读取
-    #while uart.any() == 0:  # 检查缓冲区是否有数据
+    # while uart.any() == 0:  # 检查缓冲区是否有数据
     #    pass  # 等待
     data = uart.read()  # 此时大概率能读到数据
 
-
-    action=""
-    if data!=None:
+    action = ""
+    if data != None:
         print(f"Info received from bluetooth as {data}.")
         """
         理解不了传过来的是什么东西，只能掩耳盗铃了
@@ -34,31 +33,29 @@ def Receive_Data_bt():
         OK: b'x\x80\xf8'
         down: b'\xf8x\xf8'
         """
-        if data==b'\xf8\x00\xf8':
-            action="up"
+        if data == b'\xf8\x00\xf8':
+            action = "up"
             print("up")
-        elif data==b'\x00\x80\xf8':
-            action="left"
+        elif data == b'\x00\x80\xf8':
+            action = "left"
             print("left")
-        elif data==b'\x80x\xf8':
-            action="right"
+        elif data == b'\x80x\xf8':
+            action = "right"
             print("right")
-        elif data==b'x\x80\xf8':
-            action="OK"
+        elif data == b'x\x80\xf8':
+            action = "OK"
             print("OK")
-        elif data==b'\xf8x\xf8':
-            action="down"
+        elif data == b'\xf8x\xf8':
+            action = "down"
             print("down")
         else:
-            action="failed"
+            action = "failed"
             print("Failed to understand info.")
-        if action!=None:
-            print("Action is "+action)
-
-
+        if action != None:
+            print("Action is " + action)
 
     return None
 
+
 def Get_Action_bt():
     return action
-
