@@ -2,7 +2,7 @@
 
 组别：电子技术课程设计第24小组
 
-Author：乔东铭，田凯文，潘俊屹
+Author：Dongming-Qiao，k1v，Pjy-debug
 
 ## 文件架构
 
