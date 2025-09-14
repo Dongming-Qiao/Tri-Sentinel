@@ -2,7 +2,7 @@
 
 组别：电子技术课程设计第24小组
 
-Author：Dongming-Qiao，k1v，Pjy-debug
+Author：Dongming-Qiao，tiankaiwen23，Pjy-debug
 
 ## 文件架构
 
